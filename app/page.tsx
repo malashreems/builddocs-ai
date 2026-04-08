@@ -237,6 +237,7 @@ export default function Home() {
   const [showCompareQuoteSection, setShowCompareQuoteSection] = useState(false);
   const [showCostDistribution, setShowCostDistribution] = useState(false);
   const [showRateIntelligence, setShowRateIntelligence] = useState(false);
+  const [showAdvancedInputs, setShowAdvancedInputs] = useState(false);
   const [aiReview, setAiReview] = useState<AiReview | null>(null);
   const [aiLoading, setAiLoading] = useState(false);
   const [aiError, setAiError] = useState("");
@@ -1125,20 +1126,54 @@ export default function Home() {
         </section>}
 
         {isToolRoute && <section id="tool" className="py-10">
-        <div className={`no-print p-6 ${shellCardClass}`}>
-          <form className="space-y-9">
-            <section className={`${shellCardClass} p-6 ring-1 ring-[#E8EEF8]`}>
-              <p className="text-[11px] font-semibold tracking-[1.4px] text-[#6B7280]">QUICK ESTIMATE</p>
-              <div className="mt-4 grid grid-cols-1 gap-4 md:grid-cols-2">
-                <label className="text-sm font-semibold text-[#1A1A2E]">Plot Width (ft)<input type="number" className={inputClass} value={plotWidth} onChange={(e) => setPlotWidth(Number(e.target.value))} min={0} /></label>
-                <label className="text-sm font-semibold text-[#1A1A2E]">Plot Length (ft)<input type="number" className={inputClass} value={plotLength} onChange={(e) => setPlotLength(Number(e.target.value))} min={0} /></label>
-                <label className="text-sm font-semibold text-[#1A1A2E]">Number of Floors<select className={inputClass} value={floors} onChange={(e) => setFloors(e.target.value as Floors)}><option value="1">1</option><option value="2">2</option><option value="3">3</option><option value="4">4</option></select></label>
-                <label className="text-sm font-semibold text-[#1A1A2E]">Location<select className={inputClass} value={location} onChange={(e) => setLocation(e.target.value as City)}>{cities.map((city) => <option key={city} value={city}>{city}</option>)}</select></label>
+        <div className="mx-auto flex w-full max-w-5xl flex-col gap-10">
+        <section className="no-print">
+        <div className={`p-6 ring-1 ring-[#E8EEF8] ${shellCardClass}`}>
+          <form className="space-y-6">
+            <section className={`${shellCardClass} p-6`}>
+              <p className="text-[11px] font-semibold tracking-[1.4px] text-[#6B7280]">INPUTS</p>
+
+              <div className="mt-6">
+                <h3 className="text-base font-semibold text-[#1A1A2E]">Project Details</h3>
+                <div className="mt-4 grid grid-cols-1 gap-4 md:grid-cols-3">
+                  <label className="text-sm font-semibold text-[#1A1A2E]">Plot Width (ft)<input type="number" className={inputClass} value={plotWidth} onChange={(e) => setPlotWidth(Number(e.target.value))} min={0} /></label>
+                  <label className="text-sm font-semibold text-[#1A1A2E]">Plot Length (ft)<input type="number" className={inputClass} value={plotLength} onChange={(e) => setPlotLength(Number(e.target.value))} min={0} /></label>
+                  <label className="text-sm font-semibold text-[#1A1A2E]">Number of Floors<select className={inputClass} value={floors} onChange={(e) => setFloors(e.target.value as Floors)}><option value="1">1</option><option value="2">2</option><option value="3">3</option><option value="4">4</option></select></label>
+                </div>
               </div>
-              <fieldset className="mt-4"><legend className="text-sm font-semibold text-[#1A1A2E]">Building Type</legend><div className="mt-2 flex flex-wrap gap-2 text-sm">{(["1BHK", "2BHK", "3BHK", "4BHK", "Duplex"] as const).map((type) => <button key={type} type="button" onClick={() => setBuildingType(type)} className={`${pillClass} ${buildingType === type ? "bg-gradient-to-r from-[#2563EB] to-[#06B6A4] text-white" : "bg-[#F5F5F3] text-[#1A1A2E]"}`}>{type}</button>)}</div></fieldset>
-              <fieldset className="mt-4"><legend className="text-sm font-semibold text-[#1A1A2E]">Structure Type</legend><div className="mt-2 flex flex-wrap gap-2 text-sm">{(["RCC Framed", "Load Bearing"] as const).map((type) => <button key={type} type="button" onClick={() => setStructureType(type)} className={`${pillClass} ${structureType === type ? "bg-gradient-to-r from-[#2563EB] to-[#06B6A4] text-white" : "bg-[#F5F5F3] text-[#1A1A2E]"}`}>{type}</button>)}</div></fieldset>
-              <fieldset className="mt-4"><legend className="text-sm font-semibold text-[#1A1A2E]">Parking</legend><div className="mt-2 flex flex-wrap gap-2 text-sm">{(["None", "Open", "Covered"] as const).map((type) => <button key={type} type="button" onClick={() => setParking(type)} className={`${pillClass} ${parking === type ? "bg-gradient-to-r from-[#2563EB] to-[#06B6A4] text-white" : "bg-[#F5F5F3] text-[#1A1A2E]"}`}>{type}</button>)}</div></fieldset>
-              <div className="mt-4 grid grid-cols-1 gap-4 md:grid-cols-3">{(Object.keys(profileCards) as SpecProfile[]).map((key) => { const accent = key === "Economy" ? "#059669" : key === "Standard" ? "#2563EB" : "#7C3AED"; return <button key={key} type="button" onClick={() => setProfile(key)} className={`relative h-40 rounded-xl border bg-white p-4 text-left transition ${profile === key ? "scale-[1.02] shadow-[0_8px_20px_rgba(0,0,0,0.06)]" : "shadow-[0_1px_3px_rgba(0,0,0,0.04)]"}`} style={{ borderColor: "#F0F0ED", borderLeftWidth: 5, borderLeftColor: "#2563EB" }}><p className="text-base font-semibold text-[#1A1A2E]">{key}</p><p className="mt-1 text-sm font-semibold" style={{ color: accent }}>{profileCards[key].hint}</p><p className="mt-2 text-sm text-[#6B7280]">{profileCards[key].description}</p>{profile === key && <span className="absolute right-3 top-3 text-sm font-semibold" style={{ color: accent }}>✓</span>}</button>; })}</div>
+
+              <div className="my-6 border-t border-[#ECEFF3]" />
+
+              <div>
+                <h3 className="text-base font-semibold text-[#1A1A2E]">Mode Selection</h3>
+                <div className="mt-4 flex flex-wrap gap-3">
+                  <button type="button" onClick={() => setUseCustomRates(false)} className={`${pillClass} ${!useCustomRates ? "bg-gradient-to-r from-[#2563EB] to-[#06B6A4] text-white" : "bg-[#F5F5F3] text-[#1A1A2E]"}`}>Package</button>
+                  <button type="button" onClick={() => setUseCustomRates(true)} className={`${pillClass} ${useCustomRates ? "bg-gradient-to-r from-[#2563EB] to-[#06B6A4] text-white" : "bg-[#F5F5F3] text-[#1A1A2E]"}`}>Custom</button>
+                </div>
+              </div>
+
+              <div className="my-6 border-t border-[#ECEFF3]" />
+
+              <div>
+                <button type="button" onClick={() => setShowAdvancedInputs((v) => !v)} className="flex w-full items-center justify-between rounded-lg bg-[#F8FAFC] px-4 py-3 text-left">
+                  <span className="text-base font-semibold text-[#1A1A2E]">Advanced Settings</span>
+                  <span className={`text-[#6B7280] transition-transform ${showAdvancedInputs ? "rotate-180" : ""}`}>⌄</span>
+                </button>
+                <div className={`grid transition-all duration-300 ease-out ${showAdvancedInputs ? "grid-rows-[1fr] opacity-100" : "grid-rows-[0fr] opacity-0"}`}>
+                  <div className="min-h-0 overflow-hidden">
+                    <div className="space-y-6 pt-6">
+                      <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+                        <label className="text-sm font-semibold text-[#1A1A2E]">Location<select className={inputClass} value={location} onChange={(e) => setLocation(e.target.value as City)}>{cities.map((city) => <option key={city} value={city}>{city}</option>)}</select></label>
+                        <div />
+                      </div>
+                      <fieldset><legend className="text-sm font-semibold text-[#1A1A2E]">Building Type</legend><div className="mt-3 flex flex-wrap gap-2 text-sm">{(["1BHK", "2BHK", "3BHK", "4BHK", "Duplex"] as const).map((type) => <button key={type} type="button" onClick={() => setBuildingType(type)} className={`${pillClass} ${buildingType === type ? "bg-gradient-to-r from-[#2563EB] to-[#06B6A4] text-white" : "bg-[#F5F5F3] text-[#1A1A2E]"}`}>{type}</button>)}</div></fieldset>
+                      <fieldset><legend className="text-sm font-semibold text-[#1A1A2E]">Structure Type</legend><div className="mt-3 flex flex-wrap gap-2 text-sm">{(["RCC Framed", "Load Bearing"] as const).map((type) => <button key={type} type="button" onClick={() => setStructureType(type)} className={`${pillClass} ${structureType === type ? "bg-gradient-to-r from-[#2563EB] to-[#06B6A4] text-white" : "bg-[#F5F5F3] text-[#1A1A2E]"}`}>{type}</button>)}</div></fieldset>
+                      <fieldset><legend className="text-sm font-semibold text-[#1A1A2E]">Parking</legend><div className="mt-3 flex flex-wrap gap-2 text-sm">{(["None", "Open", "Covered"] as const).map((type) => <button key={type} type="button" onClick={() => setParking(type)} className={`${pillClass} ${parking === type ? "bg-gradient-to-r from-[#2563EB] to-[#06B6A4] text-white" : "bg-[#F5F5F3] text-[#1A1A2E]"}`}>{type}</button>)}</div></fieldset>
+                      <div className="grid grid-cols-1 gap-4 md:grid-cols-3">{(Object.keys(profileCards) as SpecProfile[]).map((key) => { const accent = key === "Economy" ? "#059669" : key === "Standard" ? "#2563EB" : "#7C3AED"; return <button key={key} type="button" onClick={() => setProfile(key)} className={`relative h-40 rounded-xl border bg-white p-4 text-left transition ${profile === key ? "scale-[1.02] shadow-[0_8px_20px_rgba(0,0,0,0.06)]" : "shadow-[0_1px_3px_rgba(0,0,0,0.04)]"}`} style={{ borderColor: "#F0F0ED", borderLeftWidth: 5, borderLeftColor: "#2563EB" }}><p className="text-base font-semibold text-[#1A1A2E]">{key}</p><p className="mt-1 text-sm font-semibold" style={{ color: accent }}>{profileCards[key].hint}</p><p className="mt-2 text-sm text-[#6B7280]">{profileCards[key].description}</p>{profile === key && <span className="absolute right-3 top-3 text-sm font-semibold" style={{ color: accent }}>✓</span>}</button>; })}</div>
+                    </div>
+                  </div>
+                </div>
+              </div>
             </section>
 
             <section className={`${optionalSectionCardClass} ${useCustomRates ? "opacity-100" : "opacity-70"}`}>
@@ -1238,9 +1273,19 @@ export default function Home() {
             </section>
             {!aiEnabled && <p className="text-center text-sm text-[#9CA3AF]">Add your Anthropic API key in `.env.local` to enable AI features</p>}
             {!isGenerating && statusMessage && <p className="text-center text-sm font-semibold text-[#0066FF]">{statusMessage}</p>}
+            <div className="sticky bottom-0 z-10 mt-6 border-t border-[#ECEFF3] bg-white/95 pt-4 backdrop-blur">
+              <button
+                type="button"
+                onClick={handleGenerateDocuments}
+                className="h-[50px] w-full rounded-[12px] bg-[#2563EB] text-base font-semibold text-white transition-all duration-200 hover:bg-[#1D4ED8] active:scale-[0.99]"
+              >
+                Generate Project Documents
+              </button>
+            </div>
           </form>
         </div>
-        <section ref={resultsRef} className={`print-only mt-10 p-6 ${shellCardClass}`}>
+        </section>
+        <section ref={resultsRef} className={`print-only p-6 ${shellCardClass}`}>
             <div className={`mb-8 flex flex-col gap-6 p-6 md:flex-row md:items-start md:justify-between ${shellCardClass}`}>
               <div>
                 {latestBoq && (
@@ -1360,6 +1405,7 @@ export default function Home() {
               </>
             )}
           </section>
+        </div>
         </section>}
 
         {!isToolRoute && <section id="pricing" className="space-y-3 py-[120px]">
