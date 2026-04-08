@@ -225,6 +225,10 @@ export default function Home() {
   const [openingRows, setOpeningRows] = useState<OpeningRow[]>(getDefaultOpenings("2BHK"));
 
   const [isGenerating, setIsGenerating] = useState(false);
+  const [isProjectGenerating, setIsProjectGenerating] = useState(false);
+  const [showProjectReady, setShowProjectReady] = useState(false);
+  const [lastRegenDelta, setLastRegenDelta] = useState<number | null>(null);
+  const [pendingRegenBaseTotal, setPendingRegenBaseTotal] = useState<number | null>(null);
   const [statusMessage, setStatusMessage] = useState("");
   const [latestBoq, setLatestBoq] = useState<BoqResult | null>(null);
   const [timelineWeeks, setTimelineWeeks] = useState(0);
@@ -234,10 +238,11 @@ export default function Home() {
   const [activeSheet, setActiveSheet] = useState(0);
   const [previewPdfUrl, setPreviewPdfUrl] = useState("");
 
-  const [showCompareQuoteSection, setShowCompareQuoteSection] = useState(false);
-  const [showCostDistribution, setShowCostDistribution] = useState(false);
-  const [showRateIntelligence, setShowRateIntelligence] = useState(false);
+  const [openOutputSection, setOpenOutputSection] = useState<"cost" | "materials" | null>(null);
   const [showAdvancedInputs, setShowAdvancedInputs] = useState(false);
+  const [refineFloors, setRefineFloors] = useState<Floors>("1");
+  const [refineAreaSqft, setRefineAreaSqft] = useState(0);
+  const [refineProfile, setRefineProfile] = useState<SpecProfile>("Standard");
   const [aiReview, setAiReview] = useState<AiReview | null>(null);
   const [aiLoading, setAiLoading] = useState(false);
   const [aiError, setAiError] = useState("");
@@ -300,6 +305,17 @@ export default function Home() {
     }, 500);
     return () => { if (debounceRef.current) clearTimeout(debounceRef.current); };
   }, [isToolRoute, plotWidth, plotLength, floors, location, buildingType, structureType, parking, profile, rates, useCustomRates, useSiteDevelopment, useProfessionalInputs, includeCompoundWall, compoundWallHeight, compoundWallType, wallFinish, includeMainGate, gateType, gateWidthFt, gateHeightFt, includeSideGate, smallGateWidthFt, labourRates, roomRows, structuralInputs, openingRows]);
+  useEffect(() => {
+    if (!latestBoq) return;
+    setRefineFloors(String(latestBoq.input.floors) as Floors);
+    setRefineAreaSqft(Math.round(latestBoq.project.builtUpAreaSqft));
+    setRefineProfile(latestBoq.input.specificationProfile);
+  }, [latestBoq]);
+  useEffect(() => {
+    if (pendingRegenBaseTotal === null || !latestBoq) return;
+    setLastRegenDelta(latestBoq.totals.grandTotal - pendingRegenBaseTotal);
+    setPendingRegenBaseTotal(null);
+  }, [latestBoq, pendingRegenBaseTotal]);
 
   const plotArea = useMemo(() => Math.max(plotWidth, 0) * Math.max(plotLength, 0), [plotLength, plotWidth]);
   const builtUpArea = useMemo(() => plotArea * 0.6 * Number(floors), [floors, plotArea]);
@@ -872,6 +888,28 @@ export default function Home() {
     if (!isToolRoute) return;
     recalculateBoq();
   };
+  const handleGenerateProject = async () => {
+    if (!isToolRoute) return;
+    setShowProjectReady(false);
+    setIsProjectGenerating(true);
+    setStatusMessage("Generating your project...");
+    await new Promise((resolve) => setTimeout(resolve, 180));
+    recalculateBoq();
+    setIsProjectGenerating(false);
+    setStatusMessage("");
+    setShowProjectReady(true);
+  };
+  const handleRefineRegenerate = async () => {
+    const previousTotal = latestBoq?.totals.grandTotal ?? null;
+    const nextFloors = Math.max(1, Number(refineFloors));
+    const targetArea = Math.max(100, Number(refineAreaSqft) || 0);
+    const nextLength = targetArea / Math.max(1, plotWidth * 0.6 * nextFloors);
+    setFloors(String(nextFloors) as Floors);
+    setProfile(refineProfile);
+    setPlotLength(Math.max(1, Math.round(nextLength)));
+    if (previousTotal !== null) setPendingRegenBaseTotal(previousTotal);
+    await handleGenerateProject();
+  };
 
   const handleCompareQuote = async () => {
     if (!latestBoq) return;
@@ -1134,21 +1172,40 @@ export default function Home() {
               <p className="text-[11px] font-semibold tracking-[1.4px] text-[#6B7280]">INPUTS</p>
 
               <div className="mt-6">
-                <h3 className="text-base font-semibold text-[#1A1A2E]">Project Details</h3>
-                <div className="mt-4 grid grid-cols-1 gap-4 md:grid-cols-3">
-                  <label className="text-sm font-semibold text-[#1A1A2E]">Plot Width (ft)<input type="number" className={inputClass} value={plotWidth} onChange={(e) => setPlotWidth(Number(e.target.value))} min={0} /></label>
-                  <label className="text-sm font-semibold text-[#1A1A2E]">Plot Length (ft)<input type="number" className={inputClass} value={plotLength} onChange={(e) => setPlotLength(Number(e.target.value))} min={0} /></label>
-                  <label className="text-sm font-semibold text-[#1A1A2E]">Number of Floors<select className={inputClass} value={floors} onChange={(e) => setFloors(e.target.value as Floors)}><option value="1">1</option><option value="2">2</option><option value="3">3</option><option value="4">4</option></select></label>
+                <h3 className="text-base font-semibold text-[#1A1A2E]">Mode Selection</h3>
+                <div className="mt-4 flex flex-wrap gap-3">
+                  <button type="button" onClick={() => setUseCustomRates(false)} className={`${pillClass} ${!useCustomRates ? "bg-gradient-to-r from-[#2563EB] to-[#06B6A4] text-white" : "bg-[#F5F5F3] text-[#1A1A2E]"}`}>Package</button>
+                  <button type="button" onClick={() => setUseCustomRates(true)} className={`${pillClass} ${useCustomRates ? "bg-gradient-to-r from-[#2563EB] to-[#06B6A4] text-white" : "bg-[#F5F5F3] text-[#1A1A2E]"}`}>Custom</button>
                 </div>
+                {!useCustomRates && (
+                  <div className="mt-6 rounded-xl border border-[#E5E7EB] bg-[#FBFDFF] p-6">
+                    <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
+                      {(Object.keys(profileCards) as SpecProfile[]).map((key) => {
+                        const label = key === "Economy" ? "Basic" : key === "Standard" ? "Standard" : "Premium";
+                        const subtitle = key === "Economy" ? "Economy" : key === "Standard" ? "Balanced" : "High Quality";
+                        return (
+                          <button key={key} type="button" onClick={() => setProfile(key)} className={`relative min-h-[176px] rounded-xl border-2 bg-white p-5 text-left transition ${profile === key ? "border-[#2563EB] shadow-[0_10px_24px_rgba(37,99,235,0.14)]" : "border-[#E5E7EB]"}`}>
+                            <p className="text-[13px] font-semibold uppercase tracking-[0.8px] text-[#6B7280]">{label}</p>
+                            <p className="mt-2 text-[20px] font-semibold text-[#1A1A2E]">{subtitle}</p>
+                            <p className="mt-2 text-sm font-semibold text-[#2563EB]">{profileCards[key].hint}</p>
+                            <p className="mt-2 text-sm text-[#6B7280]">{profileCards[key].description}</p>
+                            {profile === key && <span className="absolute right-4 top-4 text-sm font-semibold text-[#2563EB]">Selected</span>}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
               </div>
 
               <div className="my-6 border-t border-[#ECEFF3]" />
 
               <div>
-                <h3 className="text-base font-semibold text-[#1A1A2E]">Mode Selection</h3>
-                <div className="mt-4 flex flex-wrap gap-3">
-                  <button type="button" onClick={() => setUseCustomRates(false)} className={`${pillClass} ${!useCustomRates ? "bg-gradient-to-r from-[#2563EB] to-[#06B6A4] text-white" : "bg-[#F5F5F3] text-[#1A1A2E]"}`}>Package</button>
-                  <button type="button" onClick={() => setUseCustomRates(true)} className={`${pillClass} ${useCustomRates ? "bg-gradient-to-r from-[#2563EB] to-[#06B6A4] text-white" : "bg-[#F5F5F3] text-[#1A1A2E]"}`}>Custom</button>
+                <h3 className="text-base font-semibold text-[#1A1A2E]">Project Details</h3>
+                <div className="mt-4 grid grid-cols-1 gap-4 md:grid-cols-3">
+                  <label className="text-sm font-semibold text-[#1A1A2E]">Plot Width (ft)<input type="number" className={inputClass} value={plotWidth} onChange={(e) => setPlotWidth(Number(e.target.value))} min={0} /></label>
+                  <label className="text-sm font-semibold text-[#1A1A2E]">Plot Length (ft)<input type="number" className={inputClass} value={plotLength} onChange={(e) => setPlotLength(Number(e.target.value))} min={0} /></label>
+                  <label className="text-sm font-semibold text-[#1A1A2E]">Number of Floors<select className={inputClass} value={floors} onChange={(e) => setFloors(e.target.value as Floors)}><option value="1">1</option><option value="2">2</option><option value="3">3</option><option value="4">4</option></select></label>
                 </div>
               </div>
 
@@ -1169,7 +1226,6 @@ export default function Home() {
                       <fieldset><legend className="text-sm font-semibold text-[#1A1A2E]">Building Type</legend><div className="mt-3 flex flex-wrap gap-2 text-sm">{(["1BHK", "2BHK", "3BHK", "4BHK", "Duplex"] as const).map((type) => <button key={type} type="button" onClick={() => setBuildingType(type)} className={`${pillClass} ${buildingType === type ? "bg-gradient-to-r from-[#2563EB] to-[#06B6A4] text-white" : "bg-[#F5F5F3] text-[#1A1A2E]"}`}>{type}</button>)}</div></fieldset>
                       <fieldset><legend className="text-sm font-semibold text-[#1A1A2E]">Structure Type</legend><div className="mt-3 flex flex-wrap gap-2 text-sm">{(["RCC Framed", "Load Bearing"] as const).map((type) => <button key={type} type="button" onClick={() => setStructureType(type)} className={`${pillClass} ${structureType === type ? "bg-gradient-to-r from-[#2563EB] to-[#06B6A4] text-white" : "bg-[#F5F5F3] text-[#1A1A2E]"}`}>{type}</button>)}</div></fieldset>
                       <fieldset><legend className="text-sm font-semibold text-[#1A1A2E]">Parking</legend><div className="mt-3 flex flex-wrap gap-2 text-sm">{(["None", "Open", "Covered"] as const).map((type) => <button key={type} type="button" onClick={() => setParking(type)} className={`${pillClass} ${parking === type ? "bg-gradient-to-r from-[#2563EB] to-[#06B6A4] text-white" : "bg-[#F5F5F3] text-[#1A1A2E]"}`}>{type}</button>)}</div></fieldset>
-                      <div className="grid grid-cols-1 gap-4 md:grid-cols-3">{(Object.keys(profileCards) as SpecProfile[]).map((key) => { const accent = key === "Economy" ? "#059669" : key === "Standard" ? "#2563EB" : "#7C3AED"; return <button key={key} type="button" onClick={() => setProfile(key)} className={`relative h-40 rounded-xl border bg-white p-4 text-left transition ${profile === key ? "scale-[1.02] shadow-[0_8px_20px_rgba(0,0,0,0.06)]" : "shadow-[0_1px_3px_rgba(0,0,0,0.04)]"}`} style={{ borderColor: "#F0F0ED", borderLeftWidth: 5, borderLeftColor: "#2563EB" }}><p className="text-base font-semibold text-[#1A1A2E]">{key}</p><p className="mt-1 text-sm font-semibold" style={{ color: accent }}>{profileCards[key].hint}</p><p className="mt-2 text-sm text-[#6B7280]">{profileCards[key].description}</p>{profile === key && <span className="absolute right-3 top-3 text-sm font-semibold" style={{ color: accent }}>✓</span>}</button>; })}</div>
                     </div>
                   </div>
                 </div>
@@ -1273,112 +1329,126 @@ export default function Home() {
             </section>
             {!aiEnabled && <p className="text-center text-sm text-[#9CA3AF]">Add your Anthropic API key in `.env.local` to enable AI features</p>}
             {!isGenerating && statusMessage && <p className="text-center text-sm font-semibold text-[#0066FF]">{statusMessage}</p>}
-            <div className="sticky bottom-0 z-10 mt-6 border-t border-[#ECEFF3] bg-white/95 pt-4 backdrop-blur">
+            <div className="sticky bottom-0 z-20 mt-6 border-t border-[#ECEFF3] bg-white/95 pt-6 backdrop-blur">
               <button
                 type="button"
-                onClick={handleGenerateDocuments}
-                className="h-[50px] w-full rounded-[12px] bg-[#2563EB] text-base font-semibold text-white transition-all duration-200 hover:bg-[#1D4ED8] active:scale-[0.99]"
+                onClick={() => void handleGenerateProject()}
+                disabled={isProjectGenerating}
+                className="h-[56px] w-full rounded-[12px] bg-gradient-to-r from-[#2563EB] to-[#1D4ED8] text-lg font-bold text-white shadow-[0_10px_24px_rgba(37,99,235,0.28)] transition-all duration-200 hover:brightness-105 active:scale-[0.985]"
               >
-                Generate Project Documents
+                <span className="inline-flex items-center gap-2">{isProjectGenerating ? "Generating your project..." : "Generate Project Documents"} <span aria-hidden>⚡</span></span>
               </button>
             </div>
           </form>
         </div>
         </section>
         <section ref={resultsRef} className={`print-only p-6 ${shellCardClass}`}>
-            <div className={`mb-8 flex flex-col gap-6 p-6 md:flex-row md:items-start md:justify-between ${shellCardClass}`}>
-              <div>
-                {latestBoq && (
-                  <>
-                    <p className="text-[13px] font-normal tracking-[0.5px] text-[#6B7280]">{latestBoq.input.buildingType} House · {latestBoq.input.city} · {latestBoq.input.specificationProfile}</p>
-                    <div className="mt-2 flex flex-wrap gap-2">
-                      <span className="inline-flex rounded-full bg-[#F3F4F6] px-2.5 py-1 text-[11px] font-semibold text-[#4B5563]">📐 Plot Details</span>
-                      {useCustomRates && <span className="inline-flex rounded-full bg-[#EFF6FF] px-2.5 py-1 text-[11px] font-semibold text-[#2563EB]">💰 Custom Rates</span>}
-                      {useProfessionalInputs && <span className="inline-flex rounded-full bg-[#ECFDF5] px-2.5 py-1 text-[11px] font-semibold text-[#059669]">👷 Professional Inputs</span>}
-                    </div>
-                    <p className="mt-1 text-[42px] font-light leading-tight text-[#1A1A2E]">{latestBoq.totals.grandTotal.toLocaleString("en-IN", { style: "currency", currency: "INR", maximumFractionDigits: 0 })}</p>
-                    <p className="text-[15px] font-normal text-[#6B7280]">{latestBoq.totals.costPerSqft.toLocaleString("en-IN", { style: "currency", currency: "INR", maximumFractionDigits: 0 })} per sqft</p>
-                    <div className="mt-4 border-t border-[#F0F0ED] pt-3">
-                      <div className="grid grid-cols-2 gap-4 text-left md:grid-cols-5">
-                        <div><p className="text-[12px] font-medium text-[#6B7280]">Plot</p><p className="text-[15px] font-semibold text-[#1A1A2E]">{latestBoq.input.widthFt}×{latestBoq.input.lengthFt} ft</p></div>
-                        <div className="md:border-l md:border-[#F0F0ED] md:pl-4"><p className="text-[12px] font-medium text-[#6B7280]">Built-up</p><p className="text-[15px] font-semibold text-[#1A1A2E]">{Math.round(latestBoq.project.builtUpAreaSqft)} sqft</p></div>
-                        <div className="md:border-l md:border-[#F0F0ED] md:pl-4"><p className="text-[12px] font-medium text-[#6B7280]">Steel</p><p className="text-[15px] font-semibold text-[#1A1A2E]">{latestBoq.metrics.steelKg.toLocaleString("en-IN")} kg</p></div>
-                        <div className="md:border-l md:border-[#F0F0ED] md:pl-4"><p className="text-[12px] font-medium text-[#6B7280]">Cement</p><p className="text-[15px] font-semibold text-[#1A1A2E]">{Math.round(latestBoq.metrics.totalCementBags).toLocaleString("en-IN")} bags</p></div>
-                        <div className="md:border-l md:border-[#F0F0ED] md:pl-4"><p className="text-[12px] font-medium text-[#6B7280]">Duration</p><p className="text-[15px] font-semibold text-[#1A1A2E]">{timelineWeeks} weeks</p></div>
-                      </div>
-                    </div>
-                  </>
-                )}
-              </div>
-              <div className="flex flex-wrap gap-2">
-                <button type="button" onClick={handleShare} disabled={!latestBoq} className={outlineBtnClass}>Share</button>
-                <button type="button" onClick={handleDownloadAll} disabled={!latestBoq || isGenerating} className={solidBtnClass}>Download All</button>
-              </div>
-            </div>
-
-            <p className="mb-6 text-sm font-semibold text-[#6B7280]">31 documents ready</p>
-            {phaseOrder.map((group) => {
-              const docs = docDescriptors.filter((d) => d.phase === group.phase);
-              return (
-                <div key={group.phase} className="mb-10">
-                  <div className="mb-2 border-b border-[#F0F0ED] pb-1 text-xs font-semibold tracking-wide text-[#6B7280]">{group.label}</div>
-                  <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
-                    {docs.map((doc) => (
-                      <div key={doc.key} className={`group flex min-h-[176px] flex-col justify-between p-6 transition hover:-translate-y-0.5 ${shellCardClass}`}>
-                        <div className="flex items-start justify-between">
-                          <div className="flex gap-3">
-                            <div className={`flex h-12 w-12 items-center justify-center rounded-lg text-lg ${doc.format === "XLSX" ? "bg-[#F0F4FF] text-[#2563EB]" : "bg-[#FFF0F0] text-[#DC2626]"}`}>{doc.icon}</div>
-                            <div><p className="text-[16px] font-semibold text-[#1A1A2E]">{doc.name}</p><p className="text-[13px] text-[#6B7280]">{doc.subtitle}</p></div>
-                          </div>
-                          <div className="flex flex-col items-end gap-2">
-                            <span className={`rounded-full px-2.5 py-1 text-[11px] font-semibold ${doc.format === "XLSX" ? "bg-[#EFF6FF] text-[#2563EB]" : "bg-[#FEF2F2] text-[#DC2626]"}`}>{doc.format}</span>
-                            {doc.key === "boq" && <div className="mt-1">{boqAiBadge()}</div>}
-                          </div>
-                        </div>
-                        <div className="mt-4 flex items-center justify-end border-t border-[#F0F0ED] pt-3"><div className="flex gap-2"><button type="button" onClick={() => void openPreviewByKey(doc.key)} disabled={!latestBoq || isGenerating} className={outlineBtnClass}>👁 Preview</button><button type="button" onClick={() => downloadDocByKey(doc.key)} disabled={!latestBoq || isGenerating} className={outlineBtnClass}>⬇ Download</button></div></div>
-                      </div>
-                    ))}
+            {isProjectGenerating && <p className="mb-6 text-lg font-semibold text-[#2563EB]">Generating your project...</p>}
+            {latestBoq && showProjectReady && (
+              <div className="mb-8 transition-opacity duration-300 opacity-100">
+                <h2 className="text-3xl font-semibold text-[#1A1A2E]">Your Project is Ready</h2>
+                <div className={`${shellCardClass} mt-4 p-6`}>
+                  <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+                    <div><p className="text-xs font-semibold text-[#6B7280]">Total Cost</p><p className="mt-1 text-xl font-semibold text-[#1A1A2E]">{latestBoq.totals.grandTotal.toLocaleString("en-IN", { style: "currency", currency: "INR", maximumFractionDigits: 0 })}</p></div>
+                    <div><p className="text-xs font-semibold text-[#6B7280]">Area</p><p className="mt-1 text-xl font-semibold text-[#1A1A2E]">{Math.round(latestBoq.project.builtUpAreaSqft).toLocaleString("en-IN")} sqft</p></div>
+                    <div><p className="text-xs font-semibold text-[#6B7280]">Cost per sqft</p><p className="mt-1 text-xl font-semibold text-[#1A1A2E]">{latestBoq.totals.costPerSqft.toLocaleString("en-IN", { style: "currency", currency: "INR", maximumFractionDigits: 0 })}</p></div>
                   </div>
                 </div>
-              );
-            })}
+              </div>
+            )}
+            <div className="space-y-8">
+              <section className={shellCardClass}>
+                <div className="border-b border-[#ECEFF3] px-6 py-4"><h3 className="text-lg font-semibold text-[#1A1A2E]">Summary</h3></div>
+                <div className="flex flex-col gap-6 p-6 md:flex-row md:items-start md:justify-between">
+                  <div>
+                    {latestBoq && (
+                      <>
+                        <p className="text-[13px] font-normal tracking-[0.5px] text-[#6B7280]">{latestBoq.input.buildingType} House · {latestBoq.input.city} · {latestBoq.input.specificationProfile}</p>
+                        <div className="mt-2 flex flex-wrap gap-2">
+                          <span className="inline-flex rounded-full bg-[#F3F4F6] px-2.5 py-1 text-[11px] font-semibold text-[#4B5563]">📐 Plot Details</span>
+                          {useCustomRates && <span className="inline-flex rounded-full bg-[#EFF6FF] px-2.5 py-1 text-[11px] font-semibold text-[#2563EB]">💰 Custom Rates</span>}
+                          {useProfessionalInputs && <span className="inline-flex rounded-full bg-[#ECFDF5] px-2.5 py-1 text-[11px] font-semibold text-[#059669]">👷 Professional Inputs</span>}
+                        </div>
+                        <p className="mt-1 text-[42px] font-light leading-tight text-[#1A1A2E]">{latestBoq.totals.grandTotal.toLocaleString("en-IN", { style: "currency", currency: "INR", maximumFractionDigits: 0 })}</p>
+                        <p className="text-[15px] font-normal text-[#6B7280]">{latestBoq.totals.costPerSqft.toLocaleString("en-IN", { style: "currency", currency: "INR", maximumFractionDigits: 0 })} per sqft</p>
+                      </>
+                    )}
+                  </div>
+                  <div className="flex flex-wrap gap-2">
+                    <button type="button" onClick={handleShare} disabled={!latestBoq} className={outlineBtnClass}>Share</button>
+                    <button type="button" onClick={handleDownloadAll} disabled={!latestBoq || isGenerating} className={solidBtnClass}>Download All</button>
+                  </div>
+                </div>
+              </section>
+
+              <section className={shellCardClass}>
+                <div className="border-b border-[#ECEFF3] px-6 py-4"><h3 className="text-lg font-semibold text-[#1A1A2E]">Documents</h3></div>
+                <div className="p-6">
+                  <p className="mb-6 text-sm font-semibold text-[#6B7280]">31 documents ready</p>
+                  {phaseOrder.map((group) => {
+                    const docs = docDescriptors.filter((d) => d.phase === group.phase);
+                    return (
+                      <div key={group.phase} className="mb-10">
+                        <div className="mb-2 border-b border-[#F0F0ED] pb-1 text-xs font-semibold tracking-wide text-[#6B7280]">{group.label}</div>
+                        <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
+                          {docs.map((doc) => (
+                            <div key={doc.key} className={`group flex min-h-[176px] flex-col justify-between p-6 transition hover:-translate-y-0.5 ${shellCardClass}`}>
+                              <div className="flex items-start justify-between">
+                                <div className="flex gap-3">
+                                  <div className={`flex h-12 w-12 items-center justify-center rounded-lg text-lg ${doc.format === "XLSX" ? "bg-[#F0F4FF] text-[#2563EB]" : "bg-[#FFF0F0] text-[#DC2626]"}`}>{doc.icon}</div>
+                                  <div><p className="text-[16px] font-semibold text-[#1A1A2E]">{doc.name}</p><p className="text-[13px] text-[#6B7280]">{doc.subtitle}</p></div>
+                                </div>
+                                <div className="flex flex-col items-end gap-2">
+                                  <span className={`rounded-full px-2.5 py-1 text-[11px] font-semibold ${doc.format === "XLSX" ? "bg-[#EFF6FF] text-[#2563EB]" : "bg-[#FEF2F2] text-[#DC2626]"}`}>{doc.format}</span>
+                                  {doc.key === "boq" && <div className="mt-1">{boqAiBadge()}</div>}
+                                </div>
+                              </div>
+                              <div className="mt-4 flex items-center justify-end border-t border-[#F0F0ED] pt-3"><div className="flex gap-2"><button type="button" onClick={() => void openPreviewByKey(doc.key)} disabled={!latestBoq || isGenerating} className={outlineBtnClass}>👁 Preview</button><button type="button" onClick={() => downloadDocByKey(doc.key)} disabled={!latestBoq || isGenerating} className={outlineBtnClass}>⬇ Download</button></div></div>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </section>
+            </div>
 
             {latestBoq && (
               <>
-                <section className={`mt-10 ${shellCardClass} ${showCompareQuoteSection ? "border-b-transparent" : ""}`}>
-                  <button type="button" onClick={() => setShowCompareQuoteSection((v) => !v)} className={collapseHeaderClass}>
-                    <span>Compare Contractor Quote</span>
-                    <span className={`inline-block transition-transform duration-300 ${showCompareQuoteSection ? "rotate-90" : ""}`}>▶</span>
+                <section className={`${shellCardClass} ${openOutputSection === "cost" ? "border-b-transparent" : ""}`}>
+                  <button type="button" onClick={() => setOpenOutputSection((v) => (v === "cost" ? null : "cost"))} className={collapseHeaderClass}>
+                    <span>Cost Breakdown</span>
+                    <span className={`inline-block transition-transform duration-300 ${openOutputSection === "cost" ? "rotate-90" : ""}`}>▶</span>
                   </button>
-                  <div className={`overflow-hidden px-6 transition-all duration-300 ${showCompareQuoteSection ? "max-h-[1200px] pb-5 opacity-100" : "max-h-0 opacity-0"}`}>
-                    <textarea value={quoteText} onChange={(e) => setQuoteText(e.target.value)} placeholder="Paste contractor quotation text or rate sheet..." className="h-32 w-full rounded-[10px] border border-[#E5E7EB] p-3 text-sm outline-none focus:border-[#0066FF] focus:shadow-[0_0_0_3px_rgba(0,102,255,0.1)]" />
-                    <div className="mt-3 flex items-center gap-3"><button type="button" onClick={() => void handleCompareQuote()} disabled={compareLoading || !quoteText.trim() || !aiEnabled} className={solidBtnClass}>{compareLoading ? "Comparing..." : "Compare with AI"}</button>{compareError && <p className="text-sm text-red-600">{compareError}</p>}</div>
-                    {compareResult && <div className="mt-4 overflow-auto"><table className="min-w-full border-collapse text-sm"><thead><tr className="bg-blue-50"><th className="border p-2 text-left">Item</th><th className="border p-2 text-right">BOQ Rate</th><th className="border p-2 text-right">Contractor Rate</th><th className="border p-2 text-right">Diff %</th><th className="border p-2 text-left">Verdict</th></tr></thead><tbody>{compareResult.items.map((item, i) => <tr key={`${item.description}-${i}`} className={item.verdict === "fair" ? "bg-green-50" : item.verdict === "overpriced" ? "bg-yellow-50" : "bg-red-50"}><td className="border p-2">{item.description}</td><td className="border p-2 text-right">{item.boq_rate}</td><td className="border p-2 text-right">{item.contractor_rate}</td><td className="border p-2 text-right">{item.difference_percent}%</td><td className="border p-2">{item.verdict}</td></tr>)}</tbody></table><p className="mt-3 text-sm font-semibold text-ink">{compareResult.overall_assessment}</p><ul className="mt-2 list-disc pl-5 text-sm text-gray-700">{compareResult.negotiation_tips.map((t, i) => <li key={`${t}-${i}`}>{t}</li>)}</ul></div>}
-                  </div>
-                </section>
-
-                <section className={`mt-10 ${shellCardClass} ${showCostDistribution ? "border-b-transparent" : ""}`}>
-                  <button type="button" onClick={() => setShowCostDistribution((v) => !v)} className={collapseHeaderClass}>
-                    <span>Cost Distribution by Category</span>
-                    <span className={`inline-block transition-transform duration-300 ${showCostDistribution ? "rotate-90" : ""}`}>▶</span>
-                  </button>
-                  <div className={`overflow-hidden px-6 transition-all duration-300 ${showCostDistribution ? "max-h-[1200px] pb-5 opacity-100" : "max-h-0 opacity-0"}`}>
+                  <div className={`overflow-hidden px-6 transition-all duration-300 ${openOutputSection === "cost" ? "max-h-[1200px] pb-5 opacity-100" : "max-h-0 opacity-0"}`}>
                     <div className="space-y-3 pt-1">
                       {scheduleChart.map((s) => <div key={s.id} className={`rounded-lg border p-2 ${s.isMax ? "border-[#2563EB]" : "border-gray-200"}`}><div className="mb-1 flex justify-between text-sm"><span className="font-medium text-ink">{s.label}</span><span className="text-gray-600">{s.amount.toLocaleString("en-IN", { style: "currency", currency: "INR", maximumFractionDigits: 0 })} ({s.pct.toFixed(1)}%)</span></div><div className="h-3 rounded-full bg-gray-100"><div className="h-3 rounded-full" style={{ width: `${Math.max(2, s.pct)}%`, backgroundColor: s.color }} /></div></div>)}
                     </div>
                   </div>
                 </section>
-                <section className={`mt-10 ${shellCardClass} ${showRateIntelligence ? "border-b-transparent" : ""}`}>
+
+                <section className={`${shellCardClass} ${openOutputSection === "materials" ? "border-b-transparent" : ""}`}>
                   <div className="flex items-center justify-between">
-                    <button type="button" onClick={() => setShowRateIntelligence((v) => !v)} className={collapseHeaderClass}>
-                      <span>Rate Intelligence</span>
-                      <span className={`inline-block transition-transform duration-300 ${showRateIntelligence ? "rotate-90" : ""}`}>▶</span>
+                    <button type="button" onClick={() => setOpenOutputSection((v) => (v === "materials" ? null : "materials"))} className={collapseHeaderClass}>
+                      <span>Materials</span>
+                      <span className={`inline-block transition-transform duration-300 ${openOutputSection === "materials" ? "rotate-90" : ""}`}>▶</span>
                     </button>
                     <button type="button" onClick={() => void refreshRates()} disabled={rateIntelLoading || !aiEnabled} className={`${outlineBtnClass} mr-5`}>
                       {rateIntelLoading ? "Refreshing..." : "Refresh Rates"}
                     </button>
                   </div>
-                  <div className={`overflow-hidden px-6 transition-all duration-300 ${showRateIntelligence ? "max-h-[1200px] pb-5 opacity-100" : "max-h-0 opacity-0"}`}>
+                  <div className={`overflow-hidden px-6 transition-all duration-300 ${openOutputSection === "materials" ? "max-h-[1600px] pb-5 opacity-100" : "max-h-0 opacity-0"}`}>
+                    <div className="grid grid-cols-1 gap-3 pt-2 sm:grid-cols-3">
+                      <div className="rounded-lg border border-[#E5E7EB] p-3"><p className="text-xs font-semibold text-[#6B7280]">Steel</p><p className="mt-1 text-sm font-semibold text-[#1A1A2E]">{Math.round(latestBoq.metrics.steelKg).toLocaleString("en-IN")} kg</p></div>
+                      <div className="rounded-lg border border-[#E5E7EB] p-3"><p className="text-xs font-semibold text-[#6B7280]">Cement</p><p className="mt-1 text-sm font-semibold text-[#1A1A2E]">{Math.round(latestBoq.metrics.totalCementBags).toLocaleString("en-IN")} bags</p></div>
+                      <div className="rounded-lg border border-[#E5E7EB] p-3"><p className="text-xs font-semibold text-[#6B7280]">Brick Volume</p><p className="mt-1 text-sm font-semibold text-[#1A1A2E]">{latestBoq.metrics.totalBrickVolume.toFixed(2)} Cu.m</p></div>
+                    </div>
+                    <div className="mt-4">
+                      <textarea value={quoteText} onChange={(e) => setQuoteText(e.target.value)} placeholder="Paste contractor quotation text or rate sheet..." className="h-24 w-full rounded-[10px] border border-[#E5E7EB] p-3 text-sm outline-none focus:border-[#0066FF] focus:shadow-[0_0_0_3px_rgba(0,102,255,0.1)]" />
+                      <div className="mt-3 flex items-center gap-3"><button type="button" onClick={() => void handleCompareQuote()} disabled={compareLoading || !quoteText.trim() || !aiEnabled} className={solidBtnClass}>{compareLoading ? "Comparing..." : "Compare with AI"}</button>{compareError && <p className="text-sm text-red-600">{compareError}</p>}</div>
+                      {compareResult && <p className="mt-3 text-sm font-semibold text-[#1A1A2E]">{compareResult.overall_assessment}</p>}
+                    </div>
                     {rateIntelError && <p className="mt-2 text-sm text-red-600">{rateIntelError}</p>}
                     {rateIntel && (
                       <>
@@ -1401,6 +1471,24 @@ export default function Home() {
                       </>
                     )}
                   </div>
+                </section>
+
+                <section className={shellCardClass}>
+                  <div className="border-b border-[#ECEFF3] px-6 py-4"><h3 className="text-lg font-semibold text-[#1A1A2E]">Refine Your Estimate</h3></div>
+                  <div className="grid grid-cols-1 gap-4 p-6 md:grid-cols-4">
+                    <label className="text-sm font-semibold text-[#1A1A2E]">Change Floors<select className={inputClass} value={refineFloors} onChange={(e) => setRefineFloors(e.target.value as Floors)}><option value="1">1</option><option value="2">2</option><option value="3">3</option><option value="4">4</option></select></label>
+                    <label className="text-sm font-semibold text-[#1A1A2E]">Adjust Area (sqft)<input type="number" className={inputClass} value={refineAreaSqft} onChange={(e) => setRefineAreaSqft(Number(e.target.value))} min={100} /></label>
+                    <label className="text-sm font-semibold text-[#1A1A2E]">Switch Package<select className={inputClass} value={refineProfile} onChange={(e) => setRefineProfile(e.target.value as SpecProfile)}><option value="Economy">Economy</option><option value="Standard">Standard</option><option value="Premium">Premium</option></select></label>
+                    <div className="flex items-end"><button type="button" onClick={() => void handleRefineRegenerate()} className="h-[50px] w-full rounded-[10px] bg-[#2563EB] font-semibold text-white transition hover:bg-[#1D4ED8] active:scale-[0.99]">Regenerate</button></div>
+                  </div>
+                  {lastRegenDelta !== null && (
+                    <div className="px-6 pb-6">
+                      <p className={`inline-flex rounded-full px-3 py-1 text-sm font-semibold ${lastRegenDelta > 0 ? "bg-[#FEF3F2] text-[#B42318]" : lastRegenDelta < 0 ? "bg-[#ECFDF3] text-[#027A48]" : "bg-[#F2F4F7] text-[#475467]"}`}>
+                        {lastRegenDelta > 0 ? "+" : lastRegenDelta < 0 ? "-" : ""}{Math.abs(lastRegenDelta).toLocaleString("en-IN", { style: "currency", currency: "INR", maximumFractionDigits: 0 })}
+                        <span className="ml-2 font-medium opacity-80">{lastRegenDelta > 0 ? "Cost increased" : lastRegenDelta < 0 ? "Cost decreased" : "No cost change"}</span>
+                      </p>
+                    </div>
+                  )}
                 </section>
               </>
             )}
