@@ -206,8 +206,22 @@ export default function Home() {
   const [parking, setParking] = useState<ParkingType>("None");
   const [profile, setProfile] = useState<SpecProfile>("Standard");
   const [useCustomRates, setUseCustomRates] = useState(false);
+  const [usePackageMode, setUsePackageMode] = useState(false);
   const [useSiteDevelopment, setUseSiteDevelopment] = useState(false);
   const [useProfessionalInputs, setUseProfessionalInputs] = useState(false);
+  const [useDrawingInputs, setUseDrawingInputs] = useState(false);
+  const [drawingFiles, setDrawingFiles] = useState<File[]>([]);
+  const [drawingInputMode, setDrawingInputMode] = useState<"auto" | "manual">("auto");
+  const [drawingDerived, setDrawingDerived] = useState({
+    builtUpAreaSqft: 0,
+    internalWallLengthM: 0,
+    externalWallLengthM: 0,
+    plasterAreaSqm: 0,
+    totalConcreteVolume: 0,
+    steelKg: 0,
+    totalCementBags: 0,
+    doorWindowCount: 0
+  });
   const [rates, setRates] = useState<MaterialRates>(getDefaultRates("Mumbai", "Standard"));
   const [labourRates, setLabourRates] = useState<LabourRates>(getDefaultLabourRates("Mumbai"));
   const [includeCompoundWall, setIncludeCompoundWall] = useState(true);
@@ -227,8 +241,6 @@ export default function Home() {
   const [isGenerating, setIsGenerating] = useState(false);
   const [isProjectGenerating, setIsProjectGenerating] = useState(false);
   const [showProjectReady, setShowProjectReady] = useState(false);
-  const [lastRegenDelta, setLastRegenDelta] = useState<number | null>(null);
-  const [pendingRegenBaseTotal, setPendingRegenBaseTotal] = useState<number | null>(null);
   const [statusMessage, setStatusMessage] = useState("");
   const [latestBoq, setLatestBoq] = useState<BoqResult | null>(null);
   const [timelineWeeks, setTimelineWeeks] = useState(0);
@@ -238,11 +250,8 @@ export default function Home() {
   const [activeSheet, setActiveSheet] = useState(0);
   const [previewPdfUrl, setPreviewPdfUrl] = useState("");
 
-  const [openOutputSection, setOpenOutputSection] = useState<"cost" | "materials" | null>(null);
+  const [openOutputSection, setOpenOutputSection] = useState<"cost" | "materials" | "compare" | null>(null);
   const [showAdvancedInputs, setShowAdvancedInputs] = useState(false);
-  const [refineFloors, setRefineFloors] = useState<Floors>("1");
-  const [refineAreaSqft, setRefineAreaSqft] = useState(0);
-  const [refineProfile, setRefineProfile] = useState<SpecProfile>("Standard");
   const [aiReview, setAiReview] = useState<AiReview | null>(null);
   const [aiLoading, setAiLoading] = useState(false);
   const [aiError, setAiError] = useState("");
@@ -304,21 +313,35 @@ export default function Home() {
       void handleGenerateDocuments();
     }, 500);
     return () => { if (debounceRef.current) clearTimeout(debounceRef.current); };
-  }, [isToolRoute, plotWidth, plotLength, floors, location, buildingType, structureType, parking, profile, rates, useCustomRates, useSiteDevelopment, useProfessionalInputs, includeCompoundWall, compoundWallHeight, compoundWallType, wallFinish, includeMainGate, gateType, gateWidthFt, gateHeightFt, includeSideGate, smallGateWidthFt, labourRates, roomRows, structuralInputs, openingRows]);
+  }, [isToolRoute, plotWidth, plotLength, floors, location, buildingType, structureType, parking, profile, rates, useCustomRates, useSiteDevelopment, useProfessionalInputs, useDrawingInputs, drawingDerived, includeCompoundWall, compoundWallHeight, compoundWallType, wallFinish, includeMainGate, gateType, gateWidthFt, gateHeightFt, includeSideGate, smallGateWidthFt, labourRates, roomRows, structuralInputs, openingRows]);
   useEffect(() => {
     if (!latestBoq) return;
-    setRefineFloors(String(latestBoq.input.floors) as Floors);
-    setRefineAreaSqft(Math.round(latestBoq.project.builtUpAreaSqft));
-    setRefineProfile(latestBoq.input.specificationProfile);
   }, [latestBoq]);
-  useEffect(() => {
-    if (pendingRegenBaseTotal === null || !latestBoq) return;
-    setLastRegenDelta(latestBoq.totals.grandTotal - pendingRegenBaseTotal);
-    setPendingRegenBaseTotal(null);
-  }, [latestBoq, pendingRegenBaseTotal]);
 
   const plotArea = useMemo(() => Math.max(plotWidth, 0) * Math.max(plotLength, 0), [plotLength, plotWidth]);
   const builtUpArea = useMemo(() => plotArea * 0.6 * Number(floors), [floors, plotArea]);
+  const builtUpAreaSqm = useMemo(() => builtUpArea / 10.764, [builtUpArea]);
+  const farValue = useMemo(() => (plotArea > 0 ? builtUpArea / plotArea : 0), [builtUpArea, plotArea]);
+  const defaultRatesForLocationProfile = useMemo(() => getDefaultRates(location, profile), [location, profile]);
+  const defaultLabourForLocation = useMemo(() => getDefaultLabourRates(location), [location]);
+  const estimatedRoomsText = useMemo(() => {
+    const map: Record<ProjectBldType, string> = {
+      "1BHK": "1 Bed + 1 Bath + 1 Kitchen + 1 Living",
+      "2BHK": "2 Bed + 2 Bath + 1 Kitchen + 1 Living + 1 Dining",
+      "3BHK": "3 Bed + 2 Bath + 1 Kitchen + 1 Living + 1 Dining",
+      "4BHK": "4 Bed + 3 Bath + 1 Kitchen + 1 Living + 1 Dining",
+      Duplex: "4 Bed + 4 Bath + 1 Kitchen + 2 Living + 1 Dining"
+    };
+    return map[buildingType];
+  }, [buildingType]);
+  const hasCustomRateChanges = useMemo(() => (
+    rates.cement !== defaultRatesForLocationProfile.cement
+    || rates.steel !== defaultRatesForLocationProfile.steel
+    || rates.sand !== defaultRatesForLocationProfile.sand
+    || rates.tiles !== defaultRatesForLocationProfile.tiles
+    || rates.bricks !== defaultRatesForLocationProfile.bricks
+    || labourRates.mason !== defaultLabourForLocation.mason
+  ), [rates, labourRates.mason, defaultRatesForLocationProfile, defaultLabourForLocation.mason]);
 
   const makeDoc = (key: DocKey, boq: BoqResult, startDate: Date): GeneratedDocument => {
     if (key === "boq") return { name: "Bill of Quantities (BOQ)", fileName: `BOQ_${location}_${buildingType}_${Math.round(boq.project.builtUpAreaSqft)}sqft.xlsx`.replaceAll(" ", "_"), mimeType: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", icon: "📊", data: new Blob([generateBoqWorkbookArrayBuffer(boq)], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" }) };
@@ -727,7 +750,64 @@ export default function Home() {
     const basicFloorToCeilingM = 10 / 3.281;
     const basicPlasterAreaSqm = baseBoq.metrics.totalPlasterArea;
     let adjustedBoq: BoqResult = baseBoq;
-    if (useProfessionalInputs) {
+    if (useDrawingInputs) {
+      const drawingBuiltUpAreaSqft = Math.max(1, drawingDerived.builtUpAreaSqft || basicFloorAreaSqft);
+      const drawingBuiltUpAreaSqm = drawingBuiltUpAreaSqft / 10.764;
+      const internalWallLengthM = Math.max(0, drawingDerived.internalWallLengthM);
+      const externalWallLengthM = Math.max(0, drawingDerived.externalWallLengthM || basicExternalWallLengthM);
+      const floorToCeilingFt = Number(structuralInputs.floorToCeiling.replace("ft", ""));
+      const floorToCeilingM = floorToCeilingFt / 3.281;
+      const wallThicknessM = 0.23;
+      const brickVolumeCum = (internalWallLengthM + externalWallLengthM) * floorToCeilingM * wallThicknessM;
+      const plasterAreaSqm = Math.max(0, drawingDerived.plasterAreaSqm || ((internalWallLengthM + externalWallLengthM) * floorToCeilingM * 2));
+      const totalConcreteVolume = Math.max(0, drawingDerived.totalConcreteVolume);
+      const steelKg = Math.max(0, drawingDerived.steelKg || (totalConcreteVolume > 0 ? totalConcreteVolume * 95 : 0));
+      const totalCementBags = Math.max(0, drawingDerived.totalCementBags || (totalConcreteVolume > 0 ? totalConcreteVolume * 7.5 : 0));
+      const doorWindowCount = Math.max(0, drawingDerived.doorWindowCount || openingRows.length);
+      console.log("[BOQ DEBUG][Drawing Inputs ON]", {
+        drawingBuiltUpAreaSqft: Number(drawingBuiltUpAreaSqft.toFixed(2)),
+        internalWallLengthM: Number(internalWallLengthM.toFixed(2)),
+        externalWallLengthM: Number(externalWallLengthM.toFixed(2)),
+        plasterAreaSqm: Number(plasterAreaSqm.toFixed(2)),
+        totalConcreteVolume: Number(totalConcreteVolume.toFixed(2)),
+        ratesMode: useCustomRates ? "custom" : "default"
+      });
+      const unitAdjustedQty = (unit: string, keyword: "brick" | "plaster" | "floor" | "steel" | "cement" | "concrete" | "doorwindow"): number | null => {
+        const u = unit.toLowerCase();
+        if (keyword === "brick") return u.includes("cu.m") || u.includes("cum") ? brickVolumeCum : brickVolumeCum * 35.3147;
+        if (keyword === "plaster") return u.includes("sq.m") ? plasterAreaSqm : plasterAreaSqm * 10.7639;
+        if (keyword === "floor") return u.includes("sq.m") ? drawingBuiltUpAreaSqm : drawingBuiltUpAreaSqft;
+        if (keyword === "steel") return steelKg;
+        if (keyword === "cement") return totalCementBags;
+        if (keyword === "concrete") return u.includes("cu.m") || u.includes("cum") ? totalConcreteVolume : totalConcreteVolume * 35.3147;
+        if (keyword === "doorwindow") return doorWindowCount;
+        return null;
+      };
+      const nextItems = baseBoq.items.map((it) => {
+        const d = it.description.toLowerCase();
+        let quantity = it.quantity;
+        if (d.includes("brick") || d.includes("masonry")) quantity = unitAdjustedQty(it.unit, "brick") ?? quantity;
+        else if (d.includes("plaster")) quantity = unitAdjustedQty(it.unit, "plaster") ?? quantity;
+        else if (d.includes("floor") || d.includes("tile")) quantity = unitAdjustedQty(it.unit, "floor") ?? quantity;
+        else if (d.includes("steel") || d.includes("reinforcement") || d.includes("rebar")) quantity = unitAdjustedQty(it.unit, "steel") ?? quantity;
+        else if (d.includes("cement")) quantity = unitAdjustedQty(it.unit, "cement") ?? quantity;
+        else if (d.includes("rcc") || d.includes("concrete")) quantity = unitAdjustedQty(it.unit, "concrete") ?? quantity;
+        else if (d.includes("door") || d.includes("window")) quantity = unitAdjustedQty(it.unit, "doorwindow") ?? quantity;
+        return { ...it, quantity, amount: quantity * it.rate };
+      });
+      const scheduleTotalsMap = new Map<string, number>();
+      nextItems.forEach((it) => scheduleTotalsMap.set(it.scheduleId, (scheduleTotalsMap.get(it.scheduleId) ?? 0) + it.amount));
+      const scheduleTotals = baseBoq.scheduleTotals.map((s) => ({ ...s, amount: scheduleTotalsMap.get(s.scheduleId) ?? s.amount }));
+      const grandTotal = scheduleTotals.reduce((sum, s) => sum + s.amount, 0);
+      adjustedBoq = {
+        ...baseBoq,
+        items: nextItems,
+        scheduleTotals,
+        project: { ...baseBoq.project, builtUpAreaSqft: drawingBuiltUpAreaSqft },
+        metrics: { ...baseBoq.metrics, totalConcreteVolume, totalBrickVolume: brickVolumeCum, totalPlasterArea: plasterAreaSqm, flooringMainArea: drawingBuiltUpAreaSqm, steelKg, totalCementBags },
+        totals: { ...baseBoq.totals, grandTotal, costPerSqft: grandTotal / Math.max(1, drawingBuiltUpAreaSqft) }
+      };
+    } else if (useProfessionalInputs) {
       const floorToCeilingFt = Number(structuralInputs.floorToCeiling.replace("ft", ""));
       const plinthHeightFt = Number(structuralInputs.plinthHeight.replace("ft", ""));
       const parapetHeightFt = Number(structuralInputs.parapetHeight.replace("ft", ""));
@@ -899,17 +979,6 @@ export default function Home() {
     setStatusMessage("");
     setShowProjectReady(true);
   };
-  const handleRefineRegenerate = async () => {
-    const previousTotal = latestBoq?.totals.grandTotal ?? null;
-    const nextFloors = Math.max(1, Number(refineFloors));
-    const targetArea = Math.max(100, Number(refineAreaSqft) || 0);
-    const nextLength = targetArea / Math.max(1, plotWidth * 0.6 * nextFloors);
-    setFloors(String(nextFloors) as Floors);
-    setProfile(refineProfile);
-    setPlotLength(Math.max(1, Math.round(nextLength)));
-    if (previousTotal !== null) setPendingRegenBaseTotal(previousTotal);
-    await handleGenerateProject();
-  };
 
   const handleCompareQuote = async () => {
     if (!latestBoq) return;
@@ -1031,6 +1100,11 @@ export default function Home() {
     const doc = getDocByKey(key);
     if (!doc) return;
     await openPreview(doc);
+  };
+  const downloadDocByKey = (key: DocKey) => {
+    const doc = getDocByKey(key);
+    if (!doc) return;
+    saveAs(doc.data, doc.fileName);
   };
   const downloadDoc = (doc: GeneratedDocument) => saveAs(doc.data, doc.fileName);
   const handleDownloadAll = () => { void generateAll(); };
@@ -1167,12 +1241,98 @@ export default function Home() {
               <p className="text-[11px] font-semibold tracking-[1.4px] text-[#6B7280]">INPUTS</p>
 
               <div className="mt-6">
-                <h3 className="text-base font-semibold text-[#1A1A2E]">Mode Selection</h3>
-                <div className="mt-4 flex flex-wrap gap-3">
-                  <button type="button" onClick={() => setUseCustomRates(false)} className={`${pillClass} ${!useCustomRates ? "bg-gradient-to-r from-[#2563EB] to-[#06B6A4] text-white" : "bg-[#F5F5F3] text-[#1A1A2E]"}`}>Package</button>
-                  <button type="button" onClick={() => setUseCustomRates(true)} className={`${pillClass} ${useCustomRates ? "bg-gradient-to-r from-[#2563EB] to-[#06B6A4] text-white" : "bg-[#F5F5F3] text-[#1A1A2E]"}`}>Custom</button>
+                <h3 className="text-base font-semibold tracking-[0.3px] text-[#1A1A2E]">PROJECT PARAMETERS</h3>
+                <div className="mt-4 grid grid-cols-1 gap-4 md:grid-cols-3">
+                  <label className="text-sm font-semibold text-[#1A1A2E]">Plot Width (ft)<input type="number" className={inputClass} value={plotWidth} onChange={(e) => setPlotWidth(Number(e.target.value))} min={0} /></label>
+                  <label className="text-sm font-semibold text-[#1A1A2E]">Plot Length (ft)<input type="number" className={inputClass} value={plotLength} onChange={(e) => setPlotLength(Number(e.target.value))} min={0} /></label>
+                  <div className="rounded-[10px] border border-[#D9E2F3] bg-[#F5F8FF] px-4 py-3">
+                    <p className="text-xs font-semibold text-[#50607A]">Plot Area (sqft)</p>
+                    <p className="mt-1 text-lg font-semibold text-[#1A1A2E]">{Math.round(plotArea).toLocaleString("en-IN")}</p>
+                  </div>
                 </div>
-                {!useCustomRates && (
+                <div className="mt-6">
+                  <button type="button" onClick={() => setShowAdvancedInputs((v) => !v)} className="flex w-full items-center justify-between rounded-lg bg-[#F8FAFC] px-4 py-3 text-left">
+                    <span className="text-base font-semibold text-[#1A1A2E]">Advanced Settings</span>
+                    <span className={`text-[#6B7280] transition-transform ${showAdvancedInputs ? "rotate-180" : ""}`}>⌄</span>
+                  </button>
+                  <div className={`grid transition-all duration-300 ease-out ${showAdvancedInputs ? "grid-rows-[1fr] opacity-100" : "grid-rows-[0fr] opacity-0"}`}>
+                    <div className="min-h-0 overflow-hidden">
+                      <div className="space-y-6 pt-6">
+                        <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+                          <label className="text-sm font-semibold text-[#1A1A2E]">Location<select className={inputClass} value={location} onChange={(e) => setLocation(e.target.value as City)}>{cities.map((city) => <option key={city} value={city}>{city}</option>)}</select></label>
+                          <label className="text-sm font-semibold text-[#1A1A2E]">Number of Floors<select className={inputClass} value={floors} onChange={(e) => setFloors(e.target.value as Floors)}><option value="1">1</option><option value="2">2</option><option value="3">3</option><option value="4">4</option></select></label>
+                        </div>
+                        <fieldset><legend className="text-sm font-semibold text-[#1A1A2E]">Building Type</legend><div className="mt-3 flex flex-wrap gap-2 text-sm">{(["1BHK", "2BHK", "3BHK", "4BHK", "Duplex"] as const).map((type) => <button key={type} type="button" onClick={() => setBuildingType(type)} className={`${pillClass} ${buildingType === type ? "bg-gradient-to-r from-[#2563EB] to-[#06B6A4] text-white" : "bg-[#F5F5F3] text-[#1A1A2E]"}`}>{type}</button>)}</div></fieldset>
+                        <fieldset><legend className="text-sm font-semibold text-[#1A1A2E]">Structure Type</legend><div className="mt-3 flex flex-wrap gap-2 text-sm">{(["RCC Framed", "Load Bearing"] as const).map((type) => <button key={type} type="button" onClick={() => setStructureType(type)} className={`${pillClass} ${structureType === type ? "bg-gradient-to-r from-[#2563EB] to-[#06B6A4] text-white" : "bg-[#F5F5F3] text-[#1A1A2E]"}`}>{type}</button>)}</div></fieldset>
+                        <fieldset><legend className="text-sm font-semibold text-[#1A1A2E]">Parking</legend><div className="mt-3 flex flex-wrap gap-2 text-sm">{(["None", "Open", "Covered"] as const).map((type) => <button key={type} type="button" onClick={() => setParking(type)} className={`${pillClass} ${parking === type ? "bg-gradient-to-r from-[#2563EB] to-[#06B6A4] text-white" : "bg-[#F5F5F3] text-[#1A1A2E]"}`}>{type}</button>)}</div></fieldset>
+                        <div className="border-t border-[#ECEFF3] pt-6">
+                          <div className="flex items-center justify-between gap-3">
+                            <p className="text-sm font-semibold text-[#1A1A2E]">Site Development</p>
+                            <div className="flex items-center gap-2">
+                              <button type="button" onClick={() => setUseSiteDevelopment(true)} className={`rounded-full border px-3 py-1.5 text-xs font-semibold transition ${useSiteDevelopment ? "border-transparent bg-gradient-to-r from-[#2563EB] to-[#06B6A4] text-white" : "border-[#E5E7EB] bg-white text-[#1A1A2E]"}`}>On</button>
+                              <button type="button" onClick={() => setUseSiteDevelopment(false)} className={`rounded-full border px-3 py-1.5 text-xs font-semibold transition ${!useSiteDevelopment ? "border-transparent bg-gradient-to-r from-[#2563EB] to-[#06B6A4] text-white" : "border-[#E5E7EB] bg-white text-[#1A1A2E]"}`}>Off</button>
+                            </div>
+                          </div>
+                          <div className={`mt-4 space-y-0 transition-opacity duration-300 ${useSiteDevelopment ? "opacity-100" : "pointer-events-none opacity-50"}`}>
+                            <div className={optionalRowClass}>
+                              <span className="w-[10rem] shrink-0 text-sm font-semibold text-[#1A1A2E]">Compound Wall</span>
+                              <div className="flex min-w-0 flex-1 flex-wrap items-center justify-end gap-2">
+                                <span className="mr-1 text-xs font-medium text-[#6B7280]">Include</span>
+                                <button type="button" disabled={!useSiteDevelopment} onClick={() => setIncludeCompoundWall(true)} className={`rounded-full border px-3 py-1.5 text-xs font-semibold transition ${includeCompoundWall ? "border-transparent bg-gradient-to-r from-[#2563EB] to-[#06B6A4] text-white" : "border-[#E5E7EB] bg-white text-[#1A1A2E]"}`}>Yes</button>
+                                <button type="button" disabled={!useSiteDevelopment} onClick={() => setIncludeCompoundWall(false)} className={`rounded-full border px-3 py-1.5 text-xs font-semibold transition ${!includeCompoundWall ? "border-transparent bg-gradient-to-r from-[#2563EB] to-[#06B6A4] text-white" : "border-[#E5E7EB] bg-white text-[#1A1A2E]"}`}>No</button>
+                                {includeCompoundWall && (
+                                  <>
+                                    <span className="mx-1 h-4 w-px shrink-0 bg-[#E5E7EB]" aria-hidden />
+                                    <label className="flex items-center gap-2 text-xs font-semibold text-[#6B7280]"><span className="whitespace-nowrap">Height</span><select className={inlineSelectClass} value={compoundWallHeight} onChange={(e) => setCompoundWallHeight(e.target.value as CompoundHeight)}><option>3 ft</option><option>4 ft</option><option>5 ft</option><option>6 ft</option></select></label>
+                                    <div className="flex flex-wrap items-center gap-1.5">{(["Brick", "Block", "Stone"] as const).map((x) => <button key={x} type="button" onClick={() => setCompoundWallType(x)} className={`rounded-full border px-2.5 py-1 text-xs font-semibold ${compoundWallType === x ? "border-transparent bg-gradient-to-r from-[#2563EB] to-[#06B6A4] text-white" : "border-[#E5E7EB] bg-white text-[#1A1A2E]"}`}>{x}</button>)}</div>
+                                    <div className="flex flex-wrap items-center gap-1.5">{([["Plastered", "Plastered"], ["Exposed", "Exposed Brick"], ["Textured", "Textured"]] as const).map(([short, val]) => <button key={val} type="button" onClick={() => setWallFinish(val)} className={`rounded-full border px-2.5 py-1 text-xs font-semibold ${wallFinish === val ? "border-transparent bg-gradient-to-r from-[#2563EB] to-[#06B6A4] text-white" : "border-[#E5E7EB] bg-white text-[#1A1A2E]"}`}>{short}</button>)}</div>
+                                  </>
+                                )}
+                              </div>
+                            </div>
+                            <div className={optionalRowClass}>
+                              <span className="w-[10rem] shrink-0 text-sm font-semibold text-[#1A1A2E]">Main Gate</span>
+                              <div className="flex min-w-0 flex-1 flex-wrap items-center justify-end gap-2">
+                                <span className="mr-1 text-xs font-medium text-[#6B7280]">Include</span>
+                                <button type="button" disabled={!useSiteDevelopment} onClick={() => setIncludeMainGate(true)} className={`rounded-full border px-3 py-1.5 text-xs font-semibold transition ${includeMainGate ? "border-transparent bg-gradient-to-r from-[#2563EB] to-[#06B6A4] text-white" : "border-[#E5E7EB] bg-white text-[#1A1A2E]"}`}>Yes</button>
+                                <button type="button" disabled={!useSiteDevelopment} onClick={() => setIncludeMainGate(false)} className={`rounded-full border px-3 py-1.5 text-xs font-semibold transition ${!includeMainGate ? "border-transparent bg-gradient-to-r from-[#2563EB] to-[#06B6A4] text-white" : "border-[#E5E7EB] bg-white text-[#1A1A2E]"}`}>No</button>
+                                {includeMainGate && (
+                                  <>
+                                    <span className="mx-1 h-4 w-px shrink-0 bg-[#E5E7EB]" aria-hidden />
+                                    <div className="flex flex-wrap items-center gap-1.5">{(["MS Fabricated", "MS with Sheet", "Wrought Iron", "SS Gate"] as const).map((x) => <button key={x} type="button" onClick={() => setGateType(x)} className={`rounded-full border px-2.5 py-1 text-xs font-semibold ${gateType === x ? "border-transparent bg-gradient-to-r from-[#2563EB] to-[#06B6A4] text-white" : "border-[#E5E7EB] bg-white text-[#1A1A2E]"}`}>{x === "SS Gate" ? "SS" : x === "MS with Sheet" ? "MS + Sheet" : x}</button>)}</div>
+                                    <label className="flex items-center gap-2 text-xs font-semibold text-[#6B7280]"><span className="whitespace-nowrap">Width (ft)</span><input type="number" className={inlineInputClass} value={gateWidthFt} onChange={(e) => setGateWidthFt(Number(e.target.value))} /></label>
+                                    <label className="flex items-center gap-2 text-xs font-semibold text-[#6B7280]"><span className="whitespace-nowrap">Height (ft)</span><input type="number" className={inlineInputClass} value={gateHeightFt} onChange={(e) => setGateHeightFt(Number(e.target.value))} /></label>
+                                  </>
+                                )}
+                              </div>
+                            </div>
+                            <div className={optionalRowClass}>
+                              <span className="w-[10rem] shrink-0 text-sm font-semibold text-[#1A1A2E]">Side Gate</span>
+                              <div className="flex min-w-0 flex-1 flex-wrap items-center justify-end gap-2">
+                                <span className="mr-1 text-xs font-medium text-[#6B7280]">Include</span>
+                                <button type="button" disabled={!useSiteDevelopment} onClick={() => setIncludeSideGate(true)} className={`rounded-full border px-3 py-1.5 text-xs font-semibold transition ${includeSideGate ? "border-transparent bg-gradient-to-r from-[#2563EB] to-[#06B6A4] text-white" : "border-[#E5E7EB] bg-white text-[#1A1A2E]"}`}>Yes</button>
+                                <button type="button" disabled={!useSiteDevelopment} onClick={() => setIncludeSideGate(false)} className={`rounded-full border px-3 py-1.5 text-xs font-semibold transition ${!includeSideGate ? "border-transparent bg-gradient-to-r from-[#2563EB] to-[#06B6A4] text-white" : "border-[#E5E7EB] bg-white text-[#1A1A2E]"}`}>No</button>
+                                {includeSideGate && (
+                                  <>
+                                    <span className="mx-1 h-4 w-px shrink-0 bg-[#E5E7EB]" aria-hidden />
+                                    <label className="flex items-center gap-2 text-xs font-semibold text-[#6B7280]"><span className="whitespace-nowrap">Width (ft)</span><input type="number" className={inlineInputClass} value={smallGateWidthFt} onChange={(e) => setSmallGateWidthFt(Number(e.target.value))} /></label>
+                                  </>
+                                )}
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <div className="my-6 border-t border-[#ECEFF3]" />
+
+              <div>
+                <h3 className="text-base font-semibold text-[#1A1A2E]">Specification</h3>
+                {
                   <div className="my-8 rounded-xl border border-[#E5E7EB] bg-[#FBFDFF] p-8">
                     <h4 className="text-[20px] font-semibold text-[#1A1A2E]">Choose Construction Quality</h4>
                     <div className="mt-6 grid grid-cols-1 gap-4 md:grid-cols-3">
@@ -1186,145 +1346,103 @@ export default function Home() {
                             <p className="mt-2 text-[18px] font-semibold text-[#1A1A2E]">{subtitle}</p>
                             <p className="mt-2 text-sm font-semibold text-[#2563EB]">{profileCards[key].hint}</p>
                             <p className="mt-2 text-sm text-[#6B7280]">{profileCards[key].description}</p>
-                            {isPremium && <span className="absolute right-4 top-4 rounded-full bg-[#EEF2FF] px-2 py-0.5 text-[10px] font-semibold text-[#4F46E5]">Recommended</span>}
-                            {profile === key && <span className="absolute left-5 top-10 text-xs font-semibold text-[#2563EB]">Selected</span>}
+                            <div className="absolute right-4 top-4 flex items-center gap-1.5">
+                              {profile === key && <span className="rounded-full bg-[#DBEAFE] px-2 py-0.5 text-[10px] font-semibold text-[#1D4ED8]">Selected</span>}
+                            </div>
                           </button>
                         );
                       })}
                     </div>
                   </div>
-                )}
-              </div>
-
-              <div className="my-6 border-t border-[#ECEFF3]" />
-
-              <div>
-                <h3 className="text-base font-semibold text-[#1A1A2E]">Project Details</h3>
-                <div className="mt-4 grid grid-cols-1 gap-4 md:grid-cols-3">
-                  <label className="text-sm font-semibold text-[#1A1A2E]">Plot Width (ft)<input type="number" className={inputClass} value={plotWidth} onChange={(e) => setPlotWidth(Number(e.target.value))} min={0} /></label>
-                  <label className="text-sm font-semibold text-[#1A1A2E]">Plot Length (ft)<input type="number" className={inputClass} value={plotLength} onChange={(e) => setPlotLength(Number(e.target.value))} min={0} /></label>
-                  <label className="text-sm font-semibold text-[#1A1A2E]">Number of Floors<select className={inputClass} value={floors} onChange={(e) => setFloors(e.target.value as Floors)}><option value="1">1</option><option value="2">2</option><option value="3">3</option><option value="4">4</option></select></label>
+                }
+                <div className="rounded-[10px] border border-[#DFE7F5] bg-[#F7FAFF] px-4 py-3 text-sm text-[#334155]">
+                  <span className="font-semibold">Built-up Area:</span> {Math.round(builtUpArea).toLocaleString("en-IN")} sqft ({builtUpAreaSqm.toFixed(2)} Sq.m)
+                  <span className="mx-2 text-[#94A3B8]">|</span>
+                  <span className="font-semibold">Ground Coverage:</span> 60%
+                  <span className="mx-2 text-[#94A3B8]">|</span>
+                  <span className="font-semibold">FAR:</span> {farValue.toFixed(1)}
+                  <span className="mx-2 text-[#94A3B8]">|</span>
+                  <span className="font-semibold">Estimated Rooms:</span> {estimatedRoomsText}
+                  {useCustomRates && hasCustomRateChanges && <span className="ml-2 text-xs text-[#475569]">| Base specification applied. Custom rates override material costs.</span>}
                 </div>
               </div>
 
-              <div className="my-6 border-t border-[#ECEFF3]" />
-
-              <div>
-                <button type="button" onClick={() => setShowAdvancedInputs((v) => !v)} className="flex w-full items-center justify-between rounded-lg bg-[#F8FAFC] px-4 py-3 text-left">
-                  <span className="text-base font-semibold text-[#1A1A2E]">Advanced Settings</span>
-                  <span className={`text-[#6B7280] transition-transform ${showAdvancedInputs ? "rotate-180" : ""}`}>⌄</span>
-                </button>
-                <div className={`grid transition-all duration-300 ease-out ${showAdvancedInputs ? "grid-rows-[1fr] opacity-100" : "grid-rows-[0fr] opacity-0"}`}>
-                  <div className="min-h-0 overflow-hidden">
-                    <div className="space-y-6 pt-6">
-                      <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-                        <label className="text-sm font-semibold text-[#1A1A2E]">Location<select className={inputClass} value={location} onChange={(e) => setLocation(e.target.value as City)}>{cities.map((city) => <option key={city} value={city}>{city}</option>)}</select></label>
-                        <div />
-                      </div>
-                      <fieldset><legend className="text-sm font-semibold text-[#1A1A2E]">Building Type</legend><div className="mt-3 flex flex-wrap gap-2 text-sm">{(["1BHK", "2BHK", "3BHK", "4BHK", "Duplex"] as const).map((type) => <button key={type} type="button" onClick={() => setBuildingType(type)} className={`${pillClass} ${buildingType === type ? "bg-gradient-to-r from-[#2563EB] to-[#06B6A4] text-white" : "bg-[#F5F5F3] text-[#1A1A2E]"}`}>{type}</button>)}</div></fieldset>
-                      <fieldset><legend className="text-sm font-semibold text-[#1A1A2E]">Structure Type</legend><div className="mt-3 flex flex-wrap gap-2 text-sm">{(["RCC Framed", "Load Bearing"] as const).map((type) => <button key={type} type="button" onClick={() => setStructureType(type)} className={`${pillClass} ${structureType === type ? "bg-gradient-to-r from-[#2563EB] to-[#06B6A4] text-white" : "bg-[#F5F5F3] text-[#1A1A2E]"}`}>{type}</button>)}</div></fieldset>
-                      <fieldset><legend className="text-sm font-semibold text-[#1A1A2E]">Parking</legend><div className="mt-3 flex flex-wrap gap-2 text-sm">{(["None", "Open", "Covered"] as const).map((type) => <button key={type} type="button" onClick={() => setParking(type)} className={`${pillClass} ${parking === type ? "bg-gradient-to-r from-[#2563EB] to-[#06B6A4] text-white" : "bg-[#F5F5F3] text-[#1A1A2E]"}`}>{type}</button>)}</div></fieldset>
-                    </div>
-                  </div>
-                </div>
-              </div>
             </section>
 
-            <section className={`${optionalSectionCardClass} ${useCustomRates ? "opacity-100" : "opacity-70"}`}>
-              <label className="flex cursor-pointer items-center gap-3 border-b border-[#ECEFF3] px-6 py-5">
-                <input type="checkbox" checked={useCustomRates} onChange={(e) => setUseCustomRates(e.target.checked)} className="h-4 w-4 shrink-0 rounded border-[#D1D5DB] text-[#2563EB] focus:ring-[#2563EB]" />
-                <span className={`min-w-0 flex-1 text-[16px] font-semibold tracking-[-0.01em] ${useCustomRates ? "text-[#1A1A2E]" : "text-[#9CA3AF]"}`}>Custom Material Rates</span>
-                <svg className={`h-5 w-5 shrink-0 text-[#9CA3AF] transition-transform duration-300 ease-out ${useCustomRates ? "rotate-180" : ""}`} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2} aria-hidden><path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" /></svg>
-              </label>
+            <section className={`${optionalSectionCardClass} ${useCustomRates ? "opacity-100" : "opacity-80"}`}>
+              <button type="button" onClick={() => setUseCustomRates((v) => !v)} className="flex w-full items-center justify-between border-b border-[#ECEFF3] px-6 py-5 text-left">
+                <div><p className="text-[16px] font-semibold tracking-[-0.01em] text-[#1A1A2E]">+ Customize Rates</p><p className="mt-1 text-xs text-[#6B7280]">Override city default rates with your supplier rates</p></div>
+                <span className={`text-[#6B7280] transition-transform ${useCustomRates ? "rotate-180" : ""}`}>⌄</span>
+              </button>
               <div className={`grid transition-all duration-300 ease-out ${useCustomRates ? "grid-rows-[1fr] opacity-100" : "grid-rows-[0fr] opacity-0"}`}>
                 <div className="min-h-0 overflow-hidden">
-                  <div className={`px-6 pb-6 pt-6 ${!useCustomRates ? "pointer-events-none" : ""}`}>
-                    <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">{[{ key: "cement", label: "Cement (₹/bag)" }, { key: "steel", label: "Steel (₹/kg)" }, { key: "sand", label: "Sand (₹/brass)" }, { key: "bricks", label: "Bricks (₹/1000)" }, { key: "tiles", label: "Tiles (₹/sqft)" }, { key: "labour", label: "Labour (₹/day)" }].map((field) => <label key={field.key} className="text-sm font-semibold text-[#1A1A2E]">{field.label}<input type="number" className={inputClass} disabled={!useCustomRates} value={rates[field.key as keyof MaterialRates]} onChange={(e) => setRates((prev) => ({ ...prev, [field.key]: Number(e.target.value) }))} min={0} /></label>)}</div>
-                    <div className="mt-6 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">{[{ key: "mason", label: "Mason (₹/day)" }, { key: "helper", label: "Helper (₹/day)" }, { key: "carpenter", label: "Carpenter (₹/day)" }, { key: "plumber", label: "Plumber (₹/day)" }, { key: "electrician", label: "Electrician (₹/day)" }, { key: "painter", label: "Painter (₹/day)" }].map((field) => <label key={field.key} className="text-sm font-semibold text-[#1A1A2E]">{field.label}<input type="number" className={inputClass} disabled={!useCustomRates} value={labourRates[field.key as keyof LabourRates]} onChange={(e) => setLabourRates((prev) => ({ ...prev, [field.key]: Number(e.target.value) }))} min={0} /></label>)}</div>
-                  </div>
-                </div>
-              </div>
-            </section>
-
-            <section className={`${optionalSectionCardClass} ${useSiteDevelopment ? "opacity-100" : "opacity-70"}`}>
-              <label className="flex cursor-pointer items-center gap-3 border-b border-[#ECEFF3] px-6 py-5">
-                <input type="checkbox" checked={useSiteDevelopment} onChange={(e) => setUseSiteDevelopment(e.target.checked)} className="h-4 w-4 shrink-0 rounded border-[#D1D5DB] text-[#2563EB] focus:ring-[#2563EB]" />
-                <span className={`min-w-0 flex-1 text-[16px] font-semibold tracking-[-0.01em] ${useSiteDevelopment ? "text-[#1A1A2E]" : "text-[#9CA3AF]"}`}>Site Development</span>
-                <svg className={`h-5 w-5 shrink-0 text-[#9CA3AF] transition-transform duration-300 ease-out ${useSiteDevelopment ? "rotate-180" : ""}`} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2} aria-hidden><path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" /></svg>
-              </label>
-              <div className={`grid transition-all duration-300 ease-out ${useSiteDevelopment ? "grid-rows-[1fr] opacity-100" : "grid-rows-[0fr] opacity-0"}`}>
-                <div className="min-h-0 overflow-hidden">
-                  <div className={`space-y-0 px-6 pb-6 pt-6 ${!useSiteDevelopment ? "pointer-events-none" : ""}`}>
-                    <div className={optionalRowClass}>
-                      <span className="w-[10rem] shrink-0 text-sm font-semibold text-[#1A1A2E]">Compound Wall</span>
-                      <div className="flex min-w-0 flex-1 flex-wrap items-center justify-end gap-2">
-                        <span className="mr-1 text-xs font-medium text-[#6B7280]">Include</span>
-                        <button type="button" disabled={!useSiteDevelopment} onClick={() => setIncludeCompoundWall(true)} className={`rounded-full border px-3 py-1.5 text-xs font-semibold transition ${includeCompoundWall ? "border-transparent bg-gradient-to-r from-[#2563EB] to-[#06B6A4] text-white" : "border-[#E5E7EB] bg-white text-[#1A1A2E]"}`}>Yes</button>
-                        <button type="button" disabled={!useSiteDevelopment} onClick={() => setIncludeCompoundWall(false)} className={`rounded-full border px-3 py-1.5 text-xs font-semibold transition ${!includeCompoundWall ? "border-transparent bg-gradient-to-r from-[#2563EB] to-[#06B6A4] text-white" : "border-[#E5E7EB] bg-white text-[#1A1A2E]"}`}>No</button>
-                        {includeCompoundWall && (
-                          <>
-                            <span className="mx-1 h-4 w-px shrink-0 bg-[#E5E7EB]" aria-hidden />
-                            <label className="flex items-center gap-2 text-xs font-semibold text-[#6B7280]"><span className="whitespace-nowrap">Height</span><select className={inlineSelectClass} value={compoundWallHeight} onChange={(e) => setCompoundWallHeight(e.target.value as CompoundHeight)}><option>3 ft</option><option>4 ft</option><option>5 ft</option><option>6 ft</option></select></label>
-                            <div className="flex flex-wrap items-center gap-1.5">{(["Brick", "Block", "Stone"] as const).map((x) => <button key={x} type="button" onClick={() => setCompoundWallType(x)} className={`rounded-full border px-2.5 py-1 text-xs font-semibold ${compoundWallType === x ? "border-transparent bg-gradient-to-r from-[#2563EB] to-[#06B6A4] text-white" : "border-[#E5E7EB] bg-white text-[#1A1A2E]"}`}>{x}</button>)}</div>
-                            <div className="flex flex-wrap items-center gap-1.5">{([["Plastered", "Plastered"], ["Exposed", "Exposed Brick"], ["Textured", "Textured"]] as const).map(([short, val]) => <button key={val} type="button" onClick={() => setWallFinish(val)} className={`rounded-full border px-2.5 py-1 text-xs font-semibold ${wallFinish === val ? "border-transparent bg-gradient-to-r from-[#2563EB] to-[#06B6A4] text-white" : "border-[#E5E7EB] bg-white text-[#1A1A2E]"}`}>{short}</button>)}</div>
-                          </>
-                        )}
-                      </div>
-                    </div>
-                    <div className={optionalRowClass}>
-                      <span className="w-[10rem] shrink-0 text-sm font-semibold text-[#1A1A2E]">Main Gate</span>
-                      <div className="flex min-w-0 flex-1 flex-wrap items-center justify-end gap-2">
-                        <span className="mr-1 text-xs font-medium text-[#6B7280]">Include</span>
-                        <button type="button" disabled={!useSiteDevelopment} onClick={() => setIncludeMainGate(true)} className={`rounded-full border px-3 py-1.5 text-xs font-semibold transition ${includeMainGate ? "border-transparent bg-gradient-to-r from-[#2563EB] to-[#06B6A4] text-white" : "border-[#E5E7EB] bg-white text-[#1A1A2E]"}`}>Yes</button>
-                        <button type="button" disabled={!useSiteDevelopment} onClick={() => setIncludeMainGate(false)} className={`rounded-full border px-3 py-1.5 text-xs font-semibold transition ${!includeMainGate ? "border-transparent bg-gradient-to-r from-[#2563EB] to-[#06B6A4] text-white" : "border-[#E5E7EB] bg-white text-[#1A1A2E]"}`}>No</button>
-                        {includeMainGate && (
-                          <>
-                            <span className="mx-1 h-4 w-px shrink-0 bg-[#E5E7EB]" aria-hidden />
-                            <div className="flex flex-wrap items-center gap-1.5">{(["MS Fabricated", "MS with Sheet", "Wrought Iron", "SS Gate"] as const).map((x) => <button key={x} type="button" onClick={() => setGateType(x)} className={`rounded-full border px-2.5 py-1 text-xs font-semibold ${gateType === x ? "border-transparent bg-gradient-to-r from-[#2563EB] to-[#06B6A4] text-white" : "border-[#E5E7EB] bg-white text-[#1A1A2E]"}`}>{x === "SS Gate" ? "SS" : x === "MS with Sheet" ? "MS + Sheet" : x}</button>)}</div>
-                            <label className="flex items-center gap-2 text-xs font-semibold text-[#6B7280]"><span className="whitespace-nowrap">Width (ft)</span><input type="number" className={inlineInputClass} value={gateWidthFt} onChange={(e) => setGateWidthFt(Number(e.target.value))} /></label>
-                            <label className="flex items-center gap-2 text-xs font-semibold text-[#6B7280]"><span className="whitespace-nowrap">Height (ft)</span><input type="number" className={inlineInputClass} value={gateHeightFt} onChange={(e) => setGateHeightFt(Number(e.target.value))} /></label>
-                          </>
-                        )}
-                      </div>
-                    </div>
-                    <div className={optionalRowClass}>
-                      <span className="w-[10rem] shrink-0 text-sm font-semibold text-[#1A1A2E]">Side Gate</span>
-                      <div className="flex min-w-0 flex-1 flex-wrap items-center justify-end gap-2">
-                        <span className="mr-1 text-xs font-medium text-[#6B7280]">Include</span>
-                        <button type="button" disabled={!useSiteDevelopment} onClick={() => setIncludeSideGate(true)} className={`rounded-full border px-3 py-1.5 text-xs font-semibold transition ${includeSideGate ? "border-transparent bg-gradient-to-r from-[#2563EB] to-[#06B6A4] text-white" : "border-[#E5E7EB] bg-white text-[#1A1A2E]"}`}>Yes</button>
-                        <button type="button" disabled={!useSiteDevelopment} onClick={() => setIncludeSideGate(false)} className={`rounded-full border px-3 py-1.5 text-xs font-semibold transition ${!includeSideGate ? "border-transparent bg-gradient-to-r from-[#2563EB] to-[#06B6A4] text-white" : "border-[#E5E7EB] bg-white text-[#1A1A2E]"}`}>No</button>
-                        {includeSideGate && (
-                          <>
-                            <span className="mx-1 h-4 w-px shrink-0 bg-[#E5E7EB]" aria-hidden />
-                            <label className="flex items-center gap-2 text-xs font-semibold text-[#6B7280]"><span className="whitespace-nowrap">Width (ft)</span><input type="number" className={inlineInputClass} value={smallGateWidthFt} onChange={(e) => setSmallGateWidthFt(Number(e.target.value))} /></label>
-                          </>
-                        )}
-                      </div>
+                  <div className="px-6 pb-6 pt-6">
+                    <div className="overflow-x-auto rounded-lg border border-[#E5E7EB]">
+                      <table className="min-w-full text-sm"><thead className="bg-[#FAFAF8] text-[#6B7280]"><tr><th className="px-3 py-2 text-left">Material</th><th className="px-3 py-2 text-left">Default Rate</th><th className="px-3 py-2 text-left">Your Rate</th><th className="px-3 py-2 text-left">Unit</th></tr></thead><tbody>
+                        {[{ label: "OPC 53 Grade", defaultVal: defaultRatesForLocationProfile.cement, yourVal: rates.cement, onChange: (v: number) => setRates((p) => ({ ...p, cement: v })), unit: "₹/bag" }, { label: "TMT Fe-500D", defaultVal: defaultRatesForLocationProfile.steel, yourVal: rates.steel, onChange: (v: number) => setRates((p) => ({ ...p, steel: v })), unit: "₹/kg" }, { label: "River Sand", defaultVal: defaultRatesForLocationProfile.sand, yourVal: rates.sand, onChange: (v: number) => setRates((p) => ({ ...p, sand: v })), unit: "₹/brass" }, { label: "Aggregate 20mm", defaultVal: defaultRatesForLocationProfile.tiles, yourVal: rates.tiles, onChange: (v: number) => setRates((p) => ({ ...p, tiles: v })), unit: "₹/brass" }, { label: "Bricks", defaultVal: defaultRatesForLocationProfile.bricks, yourVal: rates.bricks, onChange: (v: number) => setRates((p) => ({ ...p, bricks: v })), unit: "₹/1000" }, { label: "Mason Wage", defaultVal: defaultLabourForLocation.mason, yourVal: labourRates.mason, onChange: (v: number) => setLabourRates((p) => ({ ...p, mason: v })), unit: "₹/day" }].map((r) => {
+                          const modified = r.defaultVal !== r.yourVal;
+                          return <tr key={r.label} className={`border-t border-[#F0F0ED] ${modified ? "bg-[#F8FBFF]" : "bg-white"}`}><td className="px-3 py-2 font-medium text-[#1A1A2E]">{r.label}</td><td className="px-3 py-2 text-[#94A3B8]">{r.defaultVal}</td><td className="px-3 py-2"><input type="number" className="w-full rounded-md border border-[#E5E7EB] px-2 py-1" value={r.yourVal} onChange={(e) => r.onChange(Number(e.target.value))} /></td><td className="px-3 py-2 text-[#6B7280]">{r.unit}</td></tr>;
+                        })}
+                      </tbody></table>
                     </div>
                   </div>
                 </div>
               </div>
             </section>
 
-            <section className={`${optionalSectionCardClass} ${useProfessionalInputs ? "opacity-100" : "opacity-70"}`}>
-              <label className="flex cursor-pointer items-center gap-3 border-b border-[#ECEFF3] px-6 py-5">
-                <input type="checkbox" checked={useProfessionalInputs} onChange={(e) => setUseProfessionalInputs(e.target.checked)} className="h-4 w-4 shrink-0 rounded border-[#D1D5DB] text-[#2563EB] focus:ring-[#2563EB]" />
-                <span className={`min-w-0 flex-1 text-[16px] font-semibold tracking-[-0.01em] ${useProfessionalInputs ? "text-[#1A1A2E]" : "text-[#9CA3AF]"}`}>Professional Inputs</span>
-                <svg className={`h-5 w-5 shrink-0 text-[#9CA3AF] transition-transform duration-300 ease-out ${useProfessionalInputs ? "rotate-180" : ""}`} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2} aria-hidden><path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" /></svg>
-              </label>
+            <section className={`${optionalSectionCardClass} ${useProfessionalInputs ? "opacity-100" : "opacity-80"}`}>
+              <button type="button" onClick={() => setUseProfessionalInputs((v) => !v)} className="flex w-full items-center justify-between border-b border-[#ECEFF3] px-6 py-5 text-left">
+                <div><p className="text-[16px] font-semibold tracking-[-0.01em] text-[#1A1A2E]">+ Add Room Dimensions</p><p className="mt-1 text-xs text-[#6B7280]">Override auto-calculated room sizes with actual dimensions</p></div>
+                <span className={`text-[#6B7280] transition-transform ${useProfessionalInputs ? "rotate-180" : ""}`}>⌄</span>
+              </button>
               <div className={`grid transition-all duration-300 ease-out ${useProfessionalInputs ? "grid-rows-[1fr] opacity-100" : "grid-rows-[0fr] opacity-0"}`}>
                 <div className="min-h-0 overflow-hidden">
-                  <div className={`px-6 pb-6 pt-6 ${!useProfessionalInputs ? "pointer-events-none" : ""}`}>
+              <div className="px-6 pb-6 pt-6">
                     <p className="mb-2 text-sm font-semibold text-[#1A1A2E]">Room Dimensions Table</p>
-                    <div className="overflow-x-auto rounded-lg border border-[#F0F0ED]"><table className="min-w-full text-sm"><thead className="bg-[#FAFAF8] text-[#6B7280]"><tr><th className="px-3 py-2 text-left">Room Name</th><th className="px-3 py-2 text-left">Length (ft)</th><th className="px-3 py-2 text-left">Width (ft)</th><th className="px-3 py-2 text-left">Area</th><th className="px-3 py-2 text-left">-</th></tr></thead><tbody>{roomRows.map((row) => (<tr key={row.id} className="border-t border-[#F0F0ED]"><td className="px-3 py-2"><input className="w-full rounded-md border border-[#E5E7EB] px-2 py-1" value={row.name} onChange={(e) => setRoomRows((prev) => prev.map((r) => (r.id === row.id ? { ...r, name: e.target.value } : r)))} /></td><td className="px-3 py-2"><input type="number" className="w-full rounded-md border border-[#E5E7EB] px-2 py-1" value={row.lengthFt} onChange={(e) => setRoomRows((prev) => prev.map((r) => (r.id === row.id ? { ...r, lengthFt: Number(e.target.value) } : r)))} /></td><td className="px-3 py-2"><input type="number" className="w-full rounded-md border border-[#E5E7EB] px-2 py-1" value={row.widthFt} onChange={(e) => setRoomRows((prev) => prev.map((r) => (r.id === row.id ? { ...r, widthFt: Number(e.target.value) } : r)))} /></td><td className="px-3 py-2 text-[#6B7280]">{Math.round(row.lengthFt * row.widthFt)} sqft</td><td className="px-3 py-2"><button type="button" className="text-xs text-[#B91C1C]" onClick={() => setRoomRows((prev) => prev.length > 1 ? prev.filter((r) => r.id !== row.id) : prev)}>Remove</button></td></tr>))}</tbody></table></div>
-                    <div className="mt-2 flex items-center justify-between"><button type="button" className={outlineBtnClass} onClick={() => setRoomRows((prev) => [...prev, { id: Date.now(), name: "Custom Room", lengthFt: 8, widthFt: 8 }])}>+ Add Room</button><p className={`text-xs ${architectCustomAreaSqft > builtUpArea ? "text-[#B91C1C]" : "text-[#6B7280]"}`}>Total room area: {Math.round(architectCustomAreaSqft)} sqft {architectCustomAreaSqft > builtUpArea ? " (exceeds built-up area)" : ""}</p></div>
+                    <div className="overflow-x-auto rounded-lg border border-[#F0F0ED]"><table className="min-w-full text-sm"><thead className="bg-[#FAFAF8] text-[#6B7280]"><tr><th className="px-3 py-2 text-left">Room</th><th className="px-3 py-2 text-left">Length (ft)</th><th className="px-3 py-2 text-left">Width (ft)</th><th className="px-3 py-2 text-left">Area (sqft)</th><th className="px-3 py-2 text-left">Area (Sq.m)</th><th className="px-3 py-2 text-left">-</th></tr></thead><tbody>{roomRows.map((row) => (<tr key={row.id} className="border-t border-[#F0F0ED]"><td className="px-3 py-2"><input className="w-full rounded-md border border-[#E5E7EB] px-2 py-1" value={row.name} onChange={(e) => setRoomRows((prev) => prev.map((r) => (r.id === row.id ? { ...r, name: e.target.value } : r)))} /></td><td className="px-3 py-2"><input type="number" className="w-full rounded-md border border-[#E5E7EB] px-2 py-1" value={row.lengthFt} onChange={(e) => setRoomRows((prev) => prev.map((r) => (r.id === row.id ? { ...r, lengthFt: Number(e.target.value) } : r)))} /></td><td className="px-3 py-2"><input type="number" className="w-full rounded-md border border-[#E5E7EB] px-2 py-1" value={row.widthFt} onChange={(e) => setRoomRows((prev) => prev.map((r) => (r.id === row.id ? { ...r, widthFt: Number(e.target.value) } : r)))} /></td><td className="px-3 py-2 text-[#6B7280]">{Math.round(row.lengthFt * row.widthFt)}</td><td className="px-3 py-2 text-[#6B7280]">{((row.lengthFt * row.widthFt) / 10.764).toFixed(2)}</td><td className="px-3 py-2"><button type="button" className="text-xs text-[#B91C1C]" onClick={() => setRoomRows((prev) => prev.length > 1 ? prev.filter((r) => r.id !== row.id) : prev)}>Remove</button></td></tr>))}</tbody></table></div>
+                    <div className="mt-2 flex items-center justify-between"><button type="button" className={outlineBtnClass} onClick={() => setRoomRows((prev) => [...prev, { id: Date.now(), name: "Store", lengthFt: 8, widthFt: 8 }])}>+ Add Row</button><p className={`text-xs ${architectCustomAreaSqft > builtUpArea ? "text-[#B91C1C]" : "text-[#6B7280]"}`}>Total Room Area: {Math.round(architectCustomAreaSqft)} sqft ({(architectCustomAreaSqft / 10.764).toFixed(2)} Sq.m) | Built-up Area: {Math.round(builtUpArea)} sqft {architectCustomAreaSqft > builtUpArea ? " | Warning: exceeds built-up area" : ""}</p></div>
                     <div className="mt-5"><p className="mb-2 text-sm font-semibold text-[#1A1A2E]">Structural Details</p><div className="grid grid-cols-1 gap-3 md:grid-cols-3"><label className="text-sm font-semibold text-[#1A1A2E]">Number of Columns<input type="number" className={inputClass} value={structuralInputs.columns} onChange={(e) => setStructuralInputs((p) => ({ ...p, columns: Number(e.target.value) }))} /></label><label className="text-sm font-semibold text-[#1A1A2E]">Column Size<select className={inputClass} value={structuralInputs.columnSize} onChange={(e) => setStructuralInputs((p) => ({ ...p, columnSize: e.target.value as StructuralInputs["columnSize"] }))}><option>230x230mm</option><option>230x300mm</option><option>300x300mm</option></select></label><label className="text-sm font-semibold text-[#1A1A2E]">Beam Size<select className={inputClass} value={structuralInputs.beamSize} onChange={(e) => setStructuralInputs((p) => ({ ...p, beamSize: e.target.value as StructuralInputs["beamSize"] }))}><option>230x300mm</option><option>230x375mm</option><option>230x450mm</option></select></label><label className="text-sm font-semibold text-[#1A1A2E]">Slab Thickness<select className={inputClass} value={structuralInputs.slabThickness} onChange={(e) => setStructuralInputs((p) => ({ ...p, slabThickness: e.target.value as StructuralInputs["slabThickness"] }))}><option>100mm</option><option>125mm</option><option>150mm</option></select></label><label className="text-sm font-semibold text-[#1A1A2E]">Plinth Height<select className={inputClass} value={structuralInputs.plinthHeight} onChange={(e) => setStructuralInputs((p) => ({ ...p, plinthHeight: e.target.value as StructuralInputs["plinthHeight"] }))}><option>1.5ft</option><option>2ft</option><option>2.5ft</option><option>3ft</option></select></label><label className="text-sm font-semibold text-[#1A1A2E]">Floor Height<select className={inputClass} value={structuralInputs.floorToCeiling} onChange={(e) => setStructuralInputs((p) => ({ ...p, floorToCeiling: e.target.value as StructuralInputs["floorToCeiling"] }))}><option>9ft</option><option>9.5ft</option><option>10ft</option><option>10.5ft</option><option>11ft</option></select></label><label className="text-sm font-semibold text-[#1A1A2E]">Parapet Height<select className={inputClass} value={structuralInputs.parapetHeight} onChange={(e) => setStructuralInputs((p) => ({ ...p, parapetHeight: e.target.value as StructuralInputs["parapetHeight"] }))}><option>2.5ft</option><option>3ft</option><option>3.5ft</option><option>4ft</option></select></label></div></div>
                     <div className="mt-5"><p className="mb-2 text-sm font-semibold text-[#1A1A2E]">Door &amp; Window Schedule</p><div className="overflow-x-auto rounded-lg border border-[#F0F0ED]"><table className="min-w-full text-sm"><thead className="bg-[#FAFAF8] text-[#6B7280]"><tr><th className="px-3 py-2 text-left">Location</th><th className="px-3 py-2 text-left">Type</th><th className="px-3 py-2 text-left">Width (ft)</th><th className="px-3 py-2 text-left">Height (ft)</th><th className="px-3 py-2 text-left">Material</th><th className="px-3 py-2 text-left">-</th></tr></thead><tbody>{openingRows.map((row) => (<tr key={row.id} className="border-t border-[#F0F0ED]"><td className="px-3 py-2"><input className="w-full rounded-md border border-[#E5E7EB] px-2 py-1" value={row.location} onChange={(e) => setOpeningRows((prev) => prev.map((r) => (r.id === row.id ? { ...r, location: e.target.value } : r)))} /></td><td className="px-3 py-2"><select className="w-full rounded-md border border-[#E5E7EB] px-2 py-1" value={row.type} onChange={(e) => setOpeningRows((prev) => prev.map((r) => (r.id === row.id ? { ...r, type: e.target.value as OpeningRow["type"] } : r)))}><option>Main</option><option>Internal</option><option>Bathroom</option><option>Sliding</option></select></td><td className="px-3 py-2"><input type="number" className="w-full rounded-md border border-[#E5E7EB] px-2 py-1" value={row.widthFt} onChange={(e) => setOpeningRows((prev) => prev.map((r) => (r.id === row.id ? { ...r, widthFt: Number(e.target.value) } : r)))} /></td><td className="px-3 py-2"><input type="number" className="w-full rounded-md border border-[#E5E7EB] px-2 py-1" value={row.heightFt} onChange={(e) => setOpeningRows((prev) => prev.map((r) => (r.id === row.id ? { ...r, heightFt: Number(e.target.value) } : r)))} /></td><td className="px-3 py-2"><input className="w-full rounded-md border border-[#E5E7EB] px-2 py-1" value={row.material} onChange={(e) => setOpeningRows((prev) => prev.map((r) => (r.id === row.id ? { ...r, material: e.target.value } : r)))} /></td><td className="px-3 py-2"><button type="button" className="text-xs text-[#B91C1C]" onClick={() => setOpeningRows((prev) => prev.length > 1 ? prev.filter((r) => r.id !== row.id) : prev)}>Remove</button></td></tr>))}</tbody></table></div><div className="mt-2"><button type="button" className={outlineBtnClass} onClick={() => setOpeningRows((prev) => [...prev, { id: Date.now(), location: "Custom", type: "Sliding", widthFt: 4, heightFt: 4, material: "Aluminium" }])}>+ Add Opening</button></div></div>
                     <div className="mt-5 rounded-lg border border-dashed border-[#C7D2FE] bg-[#F8FAFF] p-4"><p className="text-sm font-semibold text-[#1A1A2E]">Upload Drawing <span className="ml-2 rounded-full bg-[#E5E7EB] px-2 py-0.5 text-[10px] text-[#6B7280]">Coming Soon</span></p><p className="mt-1 text-xs text-[#6B7280]">Upload AutoCAD DWG/PDF for automatic dimension extraction</p><input disabled type="file" className="mt-3 w-full cursor-not-allowed rounded-md border border-[#E5E7EB] bg-[#F3F4F6] px-3 py-2 text-xs text-[#9CA3AF]" /></div>
-                  </div>
-                </div>
+              </div>
+              </div>
               </div>
             </section>
+            {useDrawingInputs && <section className={optionalSectionCardClass}>
+              <div className="border-b border-[#ECEFF3] px-6 py-5">
+                <span className="text-[16px] font-semibold tracking-[-0.01em] text-[#1A1A2E]">Drawing Inputs</span>
+              </div>
+              <div className="space-y-5 px-6 pb-6 pt-6">
+                <div>
+                  <p className="text-sm font-semibold text-[#1A1A2E]">Upload Engineering Drawings</p>
+                  <p className="mt-1 text-xs text-[#6B7280]">Upload PDF/DWG/IFC files. You can enter derived quantities below after review.</p>
+                  <input type="file" multiple accept=".pdf,.dwg,.dxf,.ifc" className="mt-3 w-full rounded-md border border-[#E5E7EB] bg-white px-3 py-2 text-xs text-[#1A1A2E]" onChange={(e) => setDrawingFiles(Array.from(e.target.files ?? []))} />
+                  {drawingFiles.length > 0 && <p className="mt-2 text-xs text-[#6B7280]">{drawingFiles.length} drawing file(s) selected</p>}
+                </div>
+                <div className="rounded-lg border border-[#E5E7EB] bg-[#F8FAFF] p-3">
+                  <p className="text-xs font-semibold text-[#1A1A2E]">Extraction Mode</p>
+                  <div className="mt-2 flex flex-wrap gap-2">
+                    <button type="button" onClick={() => setDrawingInputMode("auto")} className={`${pillClass} ${drawingInputMode === "auto" ? "bg-gradient-to-r from-[#2563EB] to-[#06B6A4] text-white" : "bg-white text-[#1A1A2E]"}`}>Auto Extraction (Default)</button>
+                    <button type="button" onClick={() => setDrawingInputMode("manual")} className={`${pillClass} ${drawingInputMode === "manual" ? "bg-gradient-to-r from-[#2563EB] to-[#06B6A4] text-white" : "bg-white text-[#1A1A2E]"}`}>Manual Entry</button>
+                  </div>
+                  <p className="mt-2 text-[11px] text-[#6B7280]">
+                    {drawingInputMode === "auto"
+                      ? "Auto mode is selected by default. After drawing upload, extracted quantities will be used for calculation."
+                      : "Manual mode lets you directly enter measured quantities."}
+                  </p>
+                </div>
+                <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-4">
+                  <label className="text-sm font-semibold text-[#1A1A2E]">Built-up Area (sqft)<input type="number" className={inputClass} value={drawingDerived.builtUpAreaSqft} onChange={(e) => setDrawingDerived((p) => ({ ...p, builtUpAreaSqft: Number(e.target.value) }))} min={0} /></label>
+                  <label className="text-sm font-semibold text-[#1A1A2E]">Internal Wall Length (m)<input type="number" className={inputClass} value={drawingDerived.internalWallLengthM} onChange={(e) => setDrawingDerived((p) => ({ ...p, internalWallLengthM: Number(e.target.value) }))} min={0} /></label>
+                  <label className="text-sm font-semibold text-[#1A1A2E]">External Wall Length (m)<input type="number" className={inputClass} value={drawingDerived.externalWallLengthM} onChange={(e) => setDrawingDerived((p) => ({ ...p, externalWallLengthM: Number(e.target.value) }))} min={0} /></label>
+                  <label className="text-sm font-semibold text-[#1A1A2E]">Plaster Area (sq.m)<input type="number" className={inputClass} value={drawingDerived.plasterAreaSqm} onChange={(e) => setDrawingDerived((p) => ({ ...p, plasterAreaSqm: Number(e.target.value) }))} min={0} /></label>
+                  <label className="text-sm font-semibold text-[#1A1A2E]">Concrete Volume (cu.m)<input type="number" className={inputClass} value={drawingDerived.totalConcreteVolume} onChange={(e) => setDrawingDerived((p) => ({ ...p, totalConcreteVolume: Number(e.target.value) }))} min={0} /></label>
+                  <label className="text-sm font-semibold text-[#1A1A2E]">Steel (kg)<input type="number" className={inputClass} value={drawingDerived.steelKg} onChange={(e) => setDrawingDerived((p) => ({ ...p, steelKg: Number(e.target.value) }))} min={0} /></label>
+                  <label className="text-sm font-semibold text-[#1A1A2E]">Cement (bags)<input type="number" className={inputClass} value={drawingDerived.totalCementBags} onChange={(e) => setDrawingDerived((p) => ({ ...p, totalCementBags: Number(e.target.value) }))} min={0} /></label>
+                  <label className="text-sm font-semibold text-[#1A1A2E]">Doors + Windows (count)<input type="number" className={inputClass} value={drawingDerived.doorWindowCount} onChange={(e) => setDrawingDerived((p) => ({ ...p, doorWindowCount: Number(e.target.value) }))} min={0} /></label>
+                </div>
+              </div>
+            </section>}
             {!aiEnabled && <p className="text-center text-sm text-[#9CA3AF]">Add your Anthropic API key in `.env.local` to enable AI features</p>}
             {!isGenerating && statusMessage && <p className="text-center text-sm font-semibold text-[#0066FF]">{statusMessage}</p>}
             <div className="sticky bottom-0 z-20 mt-6 border-t border-[#ECEFF3] bg-white/95 pt-6 backdrop-blur">
@@ -1395,35 +1513,11 @@ export default function Home() {
                 <div className="p-6">
                   <p className="mb-6 text-sm font-semibold text-[#6B7280]">31 documents ready</p>
                   {[
-                    {
-                      label: "Cost & Estimation",
-                      items: [
-                        { key: "boq" as DocKey, title: "BOQ" },
-                        { key: "abstract" as DocKey, title: "Cost Estimate" }
-                      ]
-                    },
-                    {
-                      label: "Structural",
-                      items: [
-                        { key: "bbs" as DocKey, title: "BBS" },
-                        { key: "setbackFar" as DocKey, title: "Structural Drawings" }
-                      ]
-                    },
-                    {
-                      label: "Materials",
-                      items: [
-                        { key: "procurement" as DocKey, title: "Material Breakdown" },
-                        { key: "measurement" as DocKey, title: "Quantity Summary" }
-                      ]
-                    }
+                    { label: "Cost & Estimation", docs: docDescriptors.filter((d) => ["boq", "abstract", "payment", "rateAnalysis", "costComparison", "feasibility", "raBill", "gstInvoice", "bankLoan"].includes(d.key)) },
+                    { label: "Structural", docs: docDescriptors.filter((d) => ["bbs", "mix", "setbackFar", "rccPrepour", "approval", "safety", "electricalLoad", "plumbingSummary", "completion", "asBuilt"].includes(d.key)) },
+                    { label: "Materials", docs: docDescriptors.filter((d) => ["procurement", "materialInspection", "measurement", "labour", "timeline", "dpr", "agreement", "snag", "warranty", "om", "propertyTax", "noc"].includes(d.key)) }
                   ].map((group) => {
-                    const docs = group.items
-                      .map((item) => {
-                        const descriptor = docDescriptors.find((d) => d.key === item.key);
-                        if (!descriptor) return null;
-                        return { ...descriptor, displayTitle: item.title };
-                      })
-                      .filter(Boolean) as Array<(typeof docDescriptors)[number] & { displayTitle: string }>;
+                    const docs = group.docs;
                     return (
                       <div key={group.label} className="mb-10">
                         <div className="mb-3 border-b border-[#F0F0ED] pb-1 text-xs font-semibold tracking-wide text-[#6B7280]">{group.label}</div>
@@ -1433,20 +1527,14 @@ export default function Home() {
                               <div className="flex items-start justify-between">
                                 <div className="flex gap-3">
                                   <div className={`flex h-12 w-12 items-center justify-center rounded-lg text-lg ${doc.format === "XLSX" ? "bg-[#F0F4FF] text-[#2563EB]" : "bg-[#FFF0F0] text-[#DC2626]"}`}>{doc.icon}</div>
-                                  <div>
-                                    <p className="text-[16px] font-bold text-[#1A1A2E]">{doc.displayTitle}</p>
-                                    <p className="line-clamp-1 text-[13px] text-[#6B7280]">{doc.subtitle}</p>
-                                    <p className="mt-1 text-[11px] text-[#98A2B3]">Auto-generated · Based on project inputs · ~200KB</p>
-                                  </div>
+                                  <div><p className="text-[16px] font-bold text-[#1A1A2E]">{doc.name}</p><p className="line-clamp-1 text-[13px] text-[#6B7280]">{doc.subtitle}</p><p className="mt-1 text-[11px] text-[#98A2B3]">Auto-generated · Based on project inputs · ~200KB</p></div>
                                 </div>
                                 <div className="flex flex-col items-end gap-2">
                                   <span className={`rounded-full px-2.5 py-1 text-[11px] font-semibold ${doc.format === "XLSX" ? "bg-[#EFF6FF] text-[#2563EB]" : "bg-[#FEF2F2] text-[#DC2626]"}`}>{doc.format}</span>
                                   {doc.key === "boq" && <div className="mt-1">{boqAiBadge()}</div>}
                                 </div>
                               </div>
-                              <div className="mt-4 border-t border-[#F0F0ED] pt-3">
-                                <button type="button" onClick={() => void openPreviewByKey(doc.key)} disabled={!latestBoq || isGenerating} className="h-10 w-full rounded-[10px] bg-[#2563EB] text-sm font-semibold text-white transition hover:bg-[#1D4ED8] active:scale-[0.99] disabled:opacity-60">View Document</button>
-                              </div>
+                              <div className="mt-4 border-t border-[#F0F0ED] pt-3"><div className="grid grid-cols-2 gap-2"><button type="button" onClick={() => void openPreviewByKey(doc.key)} disabled={!latestBoq || isGenerating} className="h-10 w-full rounded-[10px] border border-[#DCE3EE] bg-white text-sm font-semibold text-[#1A1A2E] transition hover:border-[#2563EB] hover:text-[#2563EB] disabled:opacity-60">View</button><button type="button" onClick={() => downloadDocByKey(doc.key)} disabled={!latestBoq || isGenerating} className="h-10 w-full rounded-[10px] bg-[#2563EB] text-sm font-semibold text-white transition hover:bg-[#1D4ED8] active:scale-[0.99] disabled:opacity-60">Download</button></div></div>
                             </div>
                           ))}
                         </div>
@@ -1471,10 +1559,22 @@ export default function Home() {
                   </div>
                 </section>
 
+                <section className={`${shellCardClass} ${openOutputSection === "compare" ? "border-b-transparent" : ""}`}>
+                  <button type="button" onClick={() => setOpenOutputSection((v) => (v === "compare" ? null : "compare"))} className={collapseHeaderClass}>
+                    <span>Compare with AI</span>
+                    <span className={`inline-block transition-transform duration-300 ${openOutputSection === "compare" ? "rotate-90" : ""}`}>▶</span>
+                  </button>
+                  <div className={`overflow-hidden px-6 transition-all duration-300 ${openOutputSection === "compare" ? "max-h-[1200px] pb-5 opacity-100" : "max-h-0 opacity-0"}`}>
+                    <textarea value={quoteText} onChange={(e) => setQuoteText(e.target.value)} placeholder="Paste contractor quotation text or rate sheet..." className="h-24 w-full rounded-[10px] border border-[#E5E7EB] p-3 text-sm outline-none focus:border-[#0066FF] focus:shadow-[0_0_0_3px_rgba(0,102,255,0.1)]" />
+                    <div className="mt-3 flex items-center gap-3"><button type="button" onClick={() => void handleCompareQuote()} disabled={compareLoading || !quoteText.trim() || !aiEnabled} className={solidBtnClass}>{compareLoading ? "Comparing..." : "Compare with AI"}</button>{compareError && <p className="text-sm text-red-600">{compareError}</p>}</div>
+                    {compareResult && <p className="mt-3 text-sm font-semibold text-[#1A1A2E]">{compareResult.overall_assessment}</p>}
+                  </div>
+                </section>
+
                 <section className={`${shellCardClass} ${openOutputSection === "materials" ? "border-b-transparent" : ""}`}>
                   <div className="flex items-center justify-between">
                     <button type="button" onClick={() => setOpenOutputSection((v) => (v === "materials" ? null : "materials"))} className={collapseHeaderClass}>
-                      <span>Materials</span>
+                      <span>Rate Intelligence</span>
                       <span className={`inline-block transition-transform duration-300 ${openOutputSection === "materials" ? "rotate-90" : ""}`}>▶</span>
                     </button>
                     <button type="button" onClick={() => void refreshRates()} disabled={rateIntelLoading || !aiEnabled} className={`${outlineBtnClass} mr-5`}>
@@ -1486,11 +1586,6 @@ export default function Home() {
                       <div className="rounded-lg border border-[#E5E7EB] p-3"><p className="text-xs font-semibold text-[#6B7280]">Steel</p><p className="mt-1 text-sm font-semibold text-[#1A1A2E]">{Math.round(latestBoq.metrics.steelKg).toLocaleString("en-IN")} kg</p></div>
                       <div className="rounded-lg border border-[#E5E7EB] p-3"><p className="text-xs font-semibold text-[#6B7280]">Cement</p><p className="mt-1 text-sm font-semibold text-[#1A1A2E]">{Math.round(latestBoq.metrics.totalCementBags).toLocaleString("en-IN")} bags</p></div>
                       <div className="rounded-lg border border-[#E5E7EB] p-3"><p className="text-xs font-semibold text-[#6B7280]">Brick Volume</p><p className="mt-1 text-sm font-semibold text-[#1A1A2E]">{latestBoq.metrics.totalBrickVolume.toFixed(2)} Cu.m</p></div>
-                    </div>
-                    <div className="mt-4">
-                      <textarea value={quoteText} onChange={(e) => setQuoteText(e.target.value)} placeholder="Paste contractor quotation text or rate sheet..." className="h-24 w-full rounded-[10px] border border-[#E5E7EB] p-3 text-sm outline-none focus:border-[#0066FF] focus:shadow-[0_0_0_3px_rgba(0,102,255,0.1)]" />
-                      <div className="mt-3 flex items-center gap-3"><button type="button" onClick={() => void handleCompareQuote()} disabled={compareLoading || !quoteText.trim() || !aiEnabled} className={solidBtnClass}>{compareLoading ? "Comparing..." : "Compare with AI"}</button>{compareError && <p className="text-sm text-red-600">{compareError}</p>}</div>
-                      {compareResult && <p className="mt-3 text-sm font-semibold text-[#1A1A2E]">{compareResult.overall_assessment}</p>}
                     </div>
                     {rateIntelError && <p className="mt-2 text-sm text-red-600">{rateIntelError}</p>}
                     {rateIntel && (
@@ -1516,28 +1611,6 @@ export default function Home() {
                   </div>
                 </section>
 
-                <section className={shellCardClass}>
-                  <div className="border-b border-[#ECEFF3] px-6 py-4"><h3 className="text-lg font-semibold text-[#1A1A2E]">Refine Your Estimate</h3></div>
-                  <div className="grid grid-cols-1 gap-4 p-6 md:grid-cols-4">
-                    <label className="text-sm font-semibold text-[#1A1A2E]">Change Floors<select className={inputClass} value={refineFloors} onChange={(e) => setRefineFloors(e.target.value as Floors)}><option value="1">1</option><option value="2">2</option><option value="3">3</option><option value="4">4</option></select></label>
-                    <label className="text-sm font-semibold text-[#1A1A2E]">Adjust Area (sqft)<input type="number" className={inputClass} value={refineAreaSqft} onChange={(e) => setRefineAreaSqft(Number(e.target.value))} min={100} /></label>
-                    <label className="text-sm font-semibold text-[#1A1A2E]">Switch Package<select className={inputClass} value={refineProfile} onChange={(e) => setRefineProfile(e.target.value as SpecProfile)}><option value="Economy">Economy</option><option value="Standard">Standard</option><option value="Premium">Premium</option></select></label>
-                    <div className="flex items-end"><button type="button" onClick={() => void handleRefineRegenerate()} className="h-[50px] w-full rounded-[10px] bg-[#2563EB] font-semibold text-white transition hover:bg-[#1D4ED8] active:scale-[0.99]">Regenerate</button></div>
-                  </div>
-                  {lastRegenDelta !== null && (
-                    <div className="px-6 pb-6">
-                      <p className="mb-3 text-sm font-medium text-[#475467]">Updated based on your changes</p>
-                      <p className={`inline-flex rounded-full px-3 py-1 text-sm font-semibold ${lastRegenDelta > 0 ? "bg-[#FEF3F2] text-[#B42318]" : lastRegenDelta < 0 ? "bg-[#ECFDF3] text-[#027A48]" : "bg-[#F2F4F7] text-[#475467]"}`}>
-                        {lastRegenDelta > 0 ? "+" : lastRegenDelta < 0 ? "-" : ""}{Math.abs(lastRegenDelta).toLocaleString("en-IN", { style: "currency", currency: "INR", maximumFractionDigits: 0 })}
-                        <span className="ml-2 font-medium opacity-80">{lastRegenDelta > 0 ? "Cost increased" : lastRegenDelta < 0 ? "Cost decreased" : "No cost change"}</span>
-                      </p>
-                      <div className="mt-3 flex flex-wrap gap-2 text-xs text-[#667085]">
-                        <span className="rounded-full bg-[#F2F4F7] px-2.5 py-1">Try Premium to compare</span>
-                        <span className="rounded-full bg-[#F2F4F7] px-2.5 py-1">Increase area to see impact</span>
-                      </div>
-                    </div>
-                  )}
-                </section>
               </>
             )}
           </section>
