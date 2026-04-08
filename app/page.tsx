@@ -115,12 +115,12 @@ const getDefaultOpenings = (b: ProjectBldType): OpeningRow[] => {
 };
 const inter = Inter({ subsets: ["latin"], weight: ["300", "400", "600", "700"] });
 const inputClass = "mt-2 h-11 w-full rounded-[10px] border border-[#E5E7EB] bg-white px-4 py-3 text-[15px] font-normal text-[#1A1A2E] outline-none transition focus:border-[#0066FF] focus:shadow-[0_0_0_3px_rgba(0,102,255,0.1)]";
-const optionalSectionCardClass = "rounded-[14px] border border-[#E5E7EB] bg-white shadow-[0_1px_2px_rgba(0,0,0,0.04)] transition-opacity duration-300";
+const optionalSectionCardClass = "rounded-[14px] border border-[#ECEFF3] bg-white transition-opacity duration-300";
 const optionalRowClass = "flex min-h-[48px] flex-row flex-wrap items-center justify-between gap-x-4 gap-y-2 border-b border-[#F0F0ED] py-3 last:border-b-0";
 const inlineInputClass = "h-9 w-full min-w-[72px] rounded-[10px] border border-[#E5E7EB] bg-white px-3 text-[13px] font-normal text-[#1A1A2E] outline-none focus:border-[#0066FF] focus:shadow-[0_0_0_2px_rgba(0,102,255,0.08)] sm:w-auto sm:max-w-[100px]";
 const inlineSelectClass = `${inlineInputClass} pr-8`;
 const pillClass = "rounded-full px-4 py-2 text-sm font-medium transition";
-const shellCardClass = "rounded-[14px] border border-[#F0F0ED] bg-white shadow-[0_1px_3px_rgba(0,0,0,0.04)]";
+const shellCardClass = "rounded-[14px] border border-[#ECEFF3] bg-white";
 const collapseHeaderClass = "flex w-full items-center justify-between px-5 py-4 text-left text-[14px] font-semibold text-[#1A1A2E]";
 const outlineBtnClass = "rounded-full border border-[#E5E7EB] px-4 py-2 text-[13px] font-semibold text-[#1A1A2E] hover:border-[#2563EB] hover:text-[#2563EB]";
 const solidBtnClass = "rounded-full bg-gradient-to-r from-[#2563EB] to-[#06B6A4] px-4 py-2 text-[13px] font-semibold text-white";
@@ -1040,7 +1040,7 @@ export default function Home() {
       <main className="mx-auto max-w-6xl animate-pulse px-4 py-8">
         <div className="h-10 w-64 rounded bg-gray-200" />
         <div className="mt-6 rounded-2xl border p-8">
-          <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+          <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
             {Array.from({ length: 6 }).map((_, i) => (
               <div key={i} className="h-16 rounded bg-gray-100" />
             ))}
@@ -1079,7 +1079,7 @@ export default function Home() {
         </div>
       </header>
 
-      <div className="mx-auto max-w-[1100px] px-5 sm:px-12">
+      <div className="mx-auto max-w-[1100px] px-5 py-10 sm:px-12 sm:py-12">
         {!isToolRoute && <section className="relative grid min-h-[calc(100vh-56px)] place-items-center pt-10 pb-4 text-center [background-image:linear-gradient(#F0F0ED_1px,transparent_1px),linear-gradient(90deg,#F0F0ED_1px,transparent_1px)] [background-size:28px_28px]">
           <div>
             <h2 className="text-[40px] font-medium leading-[1.15] tracking-[-0.02em] text-[#1A1A2E] sm:text-[52px]">
@@ -1103,7 +1103,7 @@ export default function Home() {
           </div>
         </section>}
 
-        {!isToolRoute && <section id="features" className="py-[120px]">
+        {!isToolRoute && <section id="features" className="py-20">
           <h3 className="text-center text-[32px] font-medium text-[#1A1A2E]">Everything you need to build</h3>
           <div className="mt-6 flex flex-wrap justify-center gap-2">
             {phaseOrder.map((phase) => (
@@ -1124,10 +1124,10 @@ export default function Home() {
           </div>
         </section>}
 
-        {isToolRoute && <section id="tool" className="py-20">
-        <div className={`no-print p-6 sm:p-8 ${shellCardClass}`}>
-          <form className="space-y-4">
-            <section className={`${shellCardClass} p-5`}>
+        {isToolRoute && <section id="tool" className="py-10">
+        <div className={`no-print p-6 ${shellCardClass}`}>
+          <form className="space-y-9">
+            <section className={`${shellCardClass} p-6 ring-1 ring-[#E8EEF8]`}>
               <p className="text-[11px] font-semibold tracking-[1.4px] text-[#6B7280]">QUICK ESTIMATE</p>
               <div className="mt-4 grid grid-cols-1 gap-4 md:grid-cols-2">
                 <label className="text-sm font-semibold text-[#1A1A2E]">Plot Width (ft)<input type="number" className={inputClass} value={plotWidth} onChange={(e) => setPlotWidth(Number(e.target.value))} min={0} /></label>
@@ -1142,14 +1142,14 @@ export default function Home() {
             </section>
 
             <section className={`${optionalSectionCardClass} ${useCustomRates ? "opacity-100" : "opacity-70"}`}>
-              <label className="flex cursor-pointer items-center gap-3 border-b border-[#E5E7EB] px-5 py-4">
+              <label className="flex cursor-pointer items-center gap-3 border-b border-[#ECEFF3] px-6 py-5">
                 <input type="checkbox" checked={useCustomRates} onChange={(e) => setUseCustomRates(e.target.checked)} className="h-4 w-4 shrink-0 rounded border-[#D1D5DB] text-[#2563EB] focus:ring-[#2563EB]" />
                 <span className={`min-w-0 flex-1 text-[16px] font-semibold tracking-[-0.01em] ${useCustomRates ? "text-[#1A1A2E]" : "text-[#9CA3AF]"}`}>Custom Material Rates</span>
                 <svg className={`h-5 w-5 shrink-0 text-[#9CA3AF] transition-transform duration-300 ease-out ${useCustomRates ? "rotate-180" : ""}`} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2} aria-hidden><path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" /></svg>
               </label>
               <div className={`grid transition-all duration-300 ease-out ${useCustomRates ? "grid-rows-[1fr] opacity-100" : "grid-rows-[0fr] opacity-0"}`}>
                 <div className="min-h-0 overflow-hidden">
-                  <div className={`px-5 pb-5 pt-4 ${!useCustomRates ? "pointer-events-none" : ""}`}>
+                  <div className={`px-6 pb-6 pt-6 ${!useCustomRates ? "pointer-events-none" : ""}`}>
                     <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">{[{ key: "cement", label: "Cement (₹/bag)" }, { key: "steel", label: "Steel (₹/kg)" }, { key: "sand", label: "Sand (₹/brass)" }, { key: "bricks", label: "Bricks (₹/1000)" }, { key: "tiles", label: "Tiles (₹/sqft)" }, { key: "labour", label: "Labour (₹/day)" }].map((field) => <label key={field.key} className="text-sm font-semibold text-[#1A1A2E]">{field.label}<input type="number" className={inputClass} disabled={!useCustomRates} value={rates[field.key as keyof MaterialRates]} onChange={(e) => setRates((prev) => ({ ...prev, [field.key]: Number(e.target.value) }))} min={0} /></label>)}</div>
                     <div className="mt-6 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">{[{ key: "mason", label: "Mason (₹/day)" }, { key: "helper", label: "Helper (₹/day)" }, { key: "carpenter", label: "Carpenter (₹/day)" }, { key: "plumber", label: "Plumber (₹/day)" }, { key: "electrician", label: "Electrician (₹/day)" }, { key: "painter", label: "Painter (₹/day)" }].map((field) => <label key={field.key} className="text-sm font-semibold text-[#1A1A2E]">{field.label}<input type="number" className={inputClass} disabled={!useCustomRates} value={labourRates[field.key as keyof LabourRates]} onChange={(e) => setLabourRates((prev) => ({ ...prev, [field.key]: Number(e.target.value) }))} min={0} /></label>)}</div>
                   </div>
@@ -1158,14 +1158,14 @@ export default function Home() {
             </section>
 
             <section className={`${optionalSectionCardClass} ${useSiteDevelopment ? "opacity-100" : "opacity-70"}`}>
-              <label className="flex cursor-pointer items-center gap-3 border-b border-[#E5E7EB] px-5 py-4">
+              <label className="flex cursor-pointer items-center gap-3 border-b border-[#ECEFF3] px-6 py-5">
                 <input type="checkbox" checked={useSiteDevelopment} onChange={(e) => setUseSiteDevelopment(e.target.checked)} className="h-4 w-4 shrink-0 rounded border-[#D1D5DB] text-[#2563EB] focus:ring-[#2563EB]" />
                 <span className={`min-w-0 flex-1 text-[16px] font-semibold tracking-[-0.01em] ${useSiteDevelopment ? "text-[#1A1A2E]" : "text-[#9CA3AF]"}`}>Site Development</span>
                 <svg className={`h-5 w-5 shrink-0 text-[#9CA3AF] transition-transform duration-300 ease-out ${useSiteDevelopment ? "rotate-180" : ""}`} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2} aria-hidden><path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" /></svg>
               </label>
               <div className={`grid transition-all duration-300 ease-out ${useSiteDevelopment ? "grid-rows-[1fr] opacity-100" : "grid-rows-[0fr] opacity-0"}`}>
                 <div className="min-h-0 overflow-hidden">
-                  <div className={`space-y-0 px-5 pb-5 pt-4 ${!useSiteDevelopment ? "pointer-events-none" : ""}`}>
+                  <div className={`space-y-0 px-6 pb-6 pt-6 ${!useSiteDevelopment ? "pointer-events-none" : ""}`}>
                     <div className={optionalRowClass}>
                       <span className="w-[10rem] shrink-0 text-sm font-semibold text-[#1A1A2E]">Compound Wall</span>
                       <div className="flex min-w-0 flex-1 flex-wrap items-center justify-end gap-2">
@@ -1218,14 +1218,14 @@ export default function Home() {
             </section>
 
             <section className={`${optionalSectionCardClass} ${useProfessionalInputs ? "opacity-100" : "opacity-70"}`}>
-              <label className="flex cursor-pointer items-center gap-3 border-b border-[#E5E7EB] px-5 py-4">
+              <label className="flex cursor-pointer items-center gap-3 border-b border-[#ECEFF3] px-6 py-5">
                 <input type="checkbox" checked={useProfessionalInputs} onChange={(e) => setUseProfessionalInputs(e.target.checked)} className="h-4 w-4 shrink-0 rounded border-[#D1D5DB] text-[#2563EB] focus:ring-[#2563EB]" />
                 <span className={`min-w-0 flex-1 text-[16px] font-semibold tracking-[-0.01em] ${useProfessionalInputs ? "text-[#1A1A2E]" : "text-[#9CA3AF]"}`}>Professional Inputs</span>
                 <svg className={`h-5 w-5 shrink-0 text-[#9CA3AF] transition-transform duration-300 ease-out ${useProfessionalInputs ? "rotate-180" : ""}`} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2} aria-hidden><path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" /></svg>
               </label>
               <div className={`grid transition-all duration-300 ease-out ${useProfessionalInputs ? "grid-rows-[1fr] opacity-100" : "grid-rows-[0fr] opacity-0"}`}>
                 <div className="min-h-0 overflow-hidden">
-                  <div className={`px-5 pb-5 pt-4 ${!useProfessionalInputs ? "pointer-events-none" : ""}`}>
+                  <div className={`px-6 pb-6 pt-6 ${!useProfessionalInputs ? "pointer-events-none" : ""}`}>
                     <p className="mb-2 text-sm font-semibold text-[#1A1A2E]">Room Dimensions Table</p>
                     <div className="overflow-x-auto rounded-lg border border-[#F0F0ED]"><table className="min-w-full text-sm"><thead className="bg-[#FAFAF8] text-[#6B7280]"><tr><th className="px-3 py-2 text-left">Room Name</th><th className="px-3 py-2 text-left">Length (ft)</th><th className="px-3 py-2 text-left">Width (ft)</th><th className="px-3 py-2 text-left">Area</th><th className="px-3 py-2 text-left">-</th></tr></thead><tbody>{roomRows.map((row) => (<tr key={row.id} className="border-t border-[#F0F0ED]"><td className="px-3 py-2"><input className="w-full rounded-md border border-[#E5E7EB] px-2 py-1" value={row.name} onChange={(e) => setRoomRows((prev) => prev.map((r) => (r.id === row.id ? { ...r, name: e.target.value } : r)))} /></td><td className="px-3 py-2"><input type="number" className="w-full rounded-md border border-[#E5E7EB] px-2 py-1" value={row.lengthFt} onChange={(e) => setRoomRows((prev) => prev.map((r) => (r.id === row.id ? { ...r, lengthFt: Number(e.target.value) } : r)))} /></td><td className="px-3 py-2"><input type="number" className="w-full rounded-md border border-[#E5E7EB] px-2 py-1" value={row.widthFt} onChange={(e) => setRoomRows((prev) => prev.map((r) => (r.id === row.id ? { ...r, widthFt: Number(e.target.value) } : r)))} /></td><td className="px-3 py-2 text-[#6B7280]">{Math.round(row.lengthFt * row.widthFt)} sqft</td><td className="px-3 py-2"><button type="button" className="text-xs text-[#B91C1C]" onClick={() => setRoomRows((prev) => prev.length > 1 ? prev.filter((r) => r.id !== row.id) : prev)}>Remove</button></td></tr>))}</tbody></table></div>
                     <div className="mt-2 flex items-center justify-between"><button type="button" className={outlineBtnClass} onClick={() => setRoomRows((prev) => [...prev, { id: Date.now(), name: "Custom Room", lengthFt: 8, widthFt: 8 }])}>+ Add Room</button><p className={`text-xs ${architectCustomAreaSqft > builtUpArea ? "text-[#B91C1C]" : "text-[#6B7280]"}`}>Total room area: {Math.round(architectCustomAreaSqft)} sqft {architectCustomAreaSqft > builtUpArea ? " (exceeds built-up area)" : ""}</p></div>
@@ -1240,8 +1240,8 @@ export default function Home() {
             {!isGenerating && statusMessage && <p className="text-center text-sm font-semibold text-[#0066FF]">{statusMessage}</p>}
           </form>
         </div>
-        <section ref={resultsRef} className={`print-only mt-4 p-5 sm:p-8 ${shellCardClass}`}>
-            <div className={`mb-4 flex flex-col gap-4 p-5 md:flex-row md:items-start md:justify-between ${shellCardClass}`}>
+        <section ref={resultsRef} className={`print-only mt-10 p-6 ${shellCardClass}`}>
+            <div className={`mb-8 flex flex-col gap-6 p-6 md:flex-row md:items-start md:justify-between ${shellCardClass}`}>
               <div>
                 {latestBoq && (
                   <>
@@ -1271,15 +1271,15 @@ export default function Home() {
               </div>
             </div>
 
-            <p className="mb-3 text-sm font-semibold text-[#6B7280]">31 documents ready</p>
+            <p className="mb-6 text-sm font-semibold text-[#6B7280]">31 documents ready</p>
             {phaseOrder.map((group) => {
               const docs = docDescriptors.filter((d) => d.phase === group.phase);
               return (
-                <div key={group.phase} className="mb-5">
+                <div key={group.phase} className="mb-10">
                   <div className="mb-2 border-b border-[#F0F0ED] pb-1 text-xs font-semibold tracking-wide text-[#6B7280]">{group.label}</div>
-                  <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+                  <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
                     {docs.map((doc) => (
-                      <div key={doc.key} className={`group flex min-h-[176px] flex-col justify-between p-5 transition hover:-translate-y-0.5 hover:shadow-md ${shellCardClass}`}>
+                      <div key={doc.key} className={`group flex min-h-[176px] flex-col justify-between p-6 transition hover:-translate-y-0.5 ${shellCardClass}`}>
                         <div className="flex items-start justify-between">
                           <div className="flex gap-3">
                             <div className={`flex h-12 w-12 items-center justify-center rounded-lg text-lg ${doc.format === "XLSX" ? "bg-[#F0F4FF] text-[#2563EB]" : "bg-[#FFF0F0] text-[#DC2626]"}`}>{doc.icon}</div>
@@ -1300,30 +1300,30 @@ export default function Home() {
 
             {latestBoq && (
               <>
-                <section className={`mt-4 ${shellCardClass} ${showCompareQuoteSection ? "border-b-transparent" : ""}`}>
+                <section className={`mt-10 ${shellCardClass} ${showCompareQuoteSection ? "border-b-transparent" : ""}`}>
                   <button type="button" onClick={() => setShowCompareQuoteSection((v) => !v)} className={collapseHeaderClass}>
                     <span>Compare Contractor Quote</span>
                     <span className={`inline-block transition-transform duration-300 ${showCompareQuoteSection ? "rotate-90" : ""}`}>▶</span>
                   </button>
-                  <div className={`overflow-hidden px-5 transition-all duration-300 ${showCompareQuoteSection ? "max-h-[1200px] pb-5 opacity-100" : "max-h-0 opacity-0"}`}>
+                  <div className={`overflow-hidden px-6 transition-all duration-300 ${showCompareQuoteSection ? "max-h-[1200px] pb-5 opacity-100" : "max-h-0 opacity-0"}`}>
                     <textarea value={quoteText} onChange={(e) => setQuoteText(e.target.value)} placeholder="Paste contractor quotation text or rate sheet..." className="h-32 w-full rounded-[10px] border border-[#E5E7EB] p-3 text-sm outline-none focus:border-[#0066FF] focus:shadow-[0_0_0_3px_rgba(0,102,255,0.1)]" />
                     <div className="mt-3 flex items-center gap-3"><button type="button" onClick={() => void handleCompareQuote()} disabled={compareLoading || !quoteText.trim() || !aiEnabled} className={solidBtnClass}>{compareLoading ? "Comparing..." : "Compare with AI"}</button>{compareError && <p className="text-sm text-red-600">{compareError}</p>}</div>
                     {compareResult && <div className="mt-4 overflow-auto"><table className="min-w-full border-collapse text-sm"><thead><tr className="bg-blue-50"><th className="border p-2 text-left">Item</th><th className="border p-2 text-right">BOQ Rate</th><th className="border p-2 text-right">Contractor Rate</th><th className="border p-2 text-right">Diff %</th><th className="border p-2 text-left">Verdict</th></tr></thead><tbody>{compareResult.items.map((item, i) => <tr key={`${item.description}-${i}`} className={item.verdict === "fair" ? "bg-green-50" : item.verdict === "overpriced" ? "bg-yellow-50" : "bg-red-50"}><td className="border p-2">{item.description}</td><td className="border p-2 text-right">{item.boq_rate}</td><td className="border p-2 text-right">{item.contractor_rate}</td><td className="border p-2 text-right">{item.difference_percent}%</td><td className="border p-2">{item.verdict}</td></tr>)}</tbody></table><p className="mt-3 text-sm font-semibold text-ink">{compareResult.overall_assessment}</p><ul className="mt-2 list-disc pl-5 text-sm text-gray-700">{compareResult.negotiation_tips.map((t, i) => <li key={`${t}-${i}`}>{t}</li>)}</ul></div>}
                   </div>
                 </section>
 
-                <section className={`mt-4 ${shellCardClass} ${showCostDistribution ? "border-b-transparent" : ""}`}>
+                <section className={`mt-10 ${shellCardClass} ${showCostDistribution ? "border-b-transparent" : ""}`}>
                   <button type="button" onClick={() => setShowCostDistribution((v) => !v)} className={collapseHeaderClass}>
                     <span>Cost Distribution by Category</span>
                     <span className={`inline-block transition-transform duration-300 ${showCostDistribution ? "rotate-90" : ""}`}>▶</span>
                   </button>
-                  <div className={`overflow-hidden px-5 transition-all duration-300 ${showCostDistribution ? "max-h-[1200px] pb-5 opacity-100" : "max-h-0 opacity-0"}`}>
+                  <div className={`overflow-hidden px-6 transition-all duration-300 ${showCostDistribution ? "max-h-[1200px] pb-5 opacity-100" : "max-h-0 opacity-0"}`}>
                     <div className="space-y-3 pt-1">
                       {scheduleChart.map((s) => <div key={s.id} className={`rounded-lg border p-2 ${s.isMax ? "border-[#2563EB]" : "border-gray-200"}`}><div className="mb-1 flex justify-between text-sm"><span className="font-medium text-ink">{s.label}</span><span className="text-gray-600">{s.amount.toLocaleString("en-IN", { style: "currency", currency: "INR", maximumFractionDigits: 0 })} ({s.pct.toFixed(1)}%)</span></div><div className="h-3 rounded-full bg-gray-100"><div className="h-3 rounded-full" style={{ width: `${Math.max(2, s.pct)}%`, backgroundColor: s.color }} /></div></div>)}
                     </div>
                   </div>
                 </section>
-                <section className={`mt-4 ${shellCardClass} ${showRateIntelligence ? "border-b-transparent" : ""}`}>
+                <section className={`mt-10 ${shellCardClass} ${showRateIntelligence ? "border-b-transparent" : ""}`}>
                   <div className="flex items-center justify-between">
                     <button type="button" onClick={() => setShowRateIntelligence((v) => !v)} className={collapseHeaderClass}>
                       <span>Rate Intelligence</span>
@@ -1333,7 +1333,7 @@ export default function Home() {
                       {rateIntelLoading ? "Refreshing..." : "Refresh Rates"}
                     </button>
                   </div>
-                  <div className={`overflow-hidden px-5 transition-all duration-300 ${showRateIntelligence ? "max-h-[1200px] pb-5 opacity-100" : "max-h-0 opacity-0"}`}>
+                  <div className={`overflow-hidden px-6 transition-all duration-300 ${showRateIntelligence ? "max-h-[1200px] pb-5 opacity-100" : "max-h-0 opacity-0"}`}>
                     {rateIntelError && <p className="mt-2 text-sm text-red-600">{rateIntelError}</p>}
                     {rateIntel && (
                       <>
@@ -1386,13 +1386,13 @@ export default function Home() {
           ].map(([q, a]) => (
             <details key={q} className={`${shellCardClass} group`}>
               <summary className={collapseHeaderClass}><span>{q}</span><span className="transition-transform group-open:rotate-90">▶</span></summary>
-              <p className="px-5 pb-4 text-sm text-[#6B7280]">{a}</p>
+              <p className="px-6 pb-6 text-sm text-[#6B7280]">{a}</p>
             </details>
           ))}
           </div>
         </section>}
 
-        {!isToolRoute && <footer className="border-t border-[#F0F0ED] py-[120px]">
+        {!isToolRoute && <footer className="border-t border-[#ECEFF3] py-16">
           <div className="flex flex-col items-start justify-between gap-4 md:flex-row md:items-center">
             <div className="flex items-center gap-2"><div className="h-6 w-6 rounded-md bg-gradient-to-r from-[#2563EB] to-[#06B6A4]" /><span className="font-semibold">BuildDocs.ai</span></div>
             <div className="flex gap-4 text-sm text-[#6B7280]"><a href="#">About</a><a href="#">Contact</a><a href="#">Privacy</a></div>
@@ -1421,7 +1421,6 @@ export default function Home() {
           </div>
         </div>
       )}
-    </main>
-  );
+    </main>  );
 }
 
