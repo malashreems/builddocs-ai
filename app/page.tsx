@@ -1032,11 +1032,6 @@ export default function Home() {
     if (!doc) return;
     await openPreview(doc);
   };
-  const downloadDocByKey = (key: DocKey) => {
-    const doc = getDocByKey(key);
-    if (!doc) return;
-    saveAs(doc.data, doc.fileName);
-  };
   const downloadDoc = (doc: GeneratedDocument) => saveAs(doc.data, doc.fileName);
   const handleDownloadAll = () => { void generateAll(); };
 
@@ -1178,18 +1173,21 @@ export default function Home() {
                   <button type="button" onClick={() => setUseCustomRates(true)} className={`${pillClass} ${useCustomRates ? "bg-gradient-to-r from-[#2563EB] to-[#06B6A4] text-white" : "bg-[#F5F5F3] text-[#1A1A2E]"}`}>Custom</button>
                 </div>
                 {!useCustomRates && (
-                  <div className="mt-6 rounded-xl border border-[#E5E7EB] bg-[#FBFDFF] p-6">
-                    <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
+                  <div className="my-8 rounded-xl border border-[#E5E7EB] bg-[#FBFDFF] p-8">
+                    <h4 className="text-[20px] font-semibold text-[#1A1A2E]">Choose Construction Quality</h4>
+                    <div className="mt-6 grid grid-cols-1 gap-4 md:grid-cols-3">
                       {(Object.keys(profileCards) as SpecProfile[]).map((key) => {
                         const label = key === "Economy" ? "Basic" : key === "Standard" ? "Standard" : "Premium";
-                        const subtitle = key === "Economy" ? "Economy" : key === "Standard" ? "Balanced" : "High Quality";
+                        const subtitle = key === "Economy" ? "Cost optimized" : key === "Standard" ? "Balanced quality" : "High durability & finish";
+                        const isPremium = key === "Premium";
                         return (
-                          <button key={key} type="button" onClick={() => setProfile(key)} className={`relative min-h-[176px] rounded-xl border-2 bg-white p-5 text-left transition ${profile === key ? "border-[#2563EB] shadow-[0_10px_24px_rgba(37,99,235,0.14)]" : "border-[#E5E7EB]"}`}>
+                          <button key={key} type="button" onClick={() => setProfile(key)} className={`relative rounded-xl border-2 bg-white p-5 text-left transition ${isPremium ? "min-h-[188px]" : "min-h-[176px]"} ${profile === key ? "border-[#2563EB] shadow-[0_12px_28px_rgba(37,99,235,0.18)] -translate-y-0.5" : isPremium ? "border-[#D5DAE1] shadow-[0_4px_14px_rgba(0,0,0,0.06)]" : "border-[#E5E7EB]"}`}>
                             <p className="text-[13px] font-semibold uppercase tracking-[0.8px] text-[#6B7280]">{label}</p>
-                            <p className="mt-2 text-[20px] font-semibold text-[#1A1A2E]">{subtitle}</p>
+                            <p className="mt-2 text-[18px] font-semibold text-[#1A1A2E]">{subtitle}</p>
                             <p className="mt-2 text-sm font-semibold text-[#2563EB]">{profileCards[key].hint}</p>
                             <p className="mt-2 text-sm text-[#6B7280]">{profileCards[key].description}</p>
-                            {profile === key && <span className="absolute right-4 top-4 text-sm font-semibold text-[#2563EB]">Selected</span>}
+                            {isPremium && <span className="absolute right-4 top-4 rounded-full bg-[#EEF2FF] px-2 py-0.5 text-[10px] font-semibold text-[#4F46E5]">Recommended</span>}
+                            {profile === key && <span className="absolute left-5 top-10 text-xs font-semibold text-[#2563EB]">Selected</span>}
                           </button>
                         );
                       })}
@@ -1358,23 +1356,30 @@ export default function Home() {
             )}
             <div className="space-y-8">
               <section className={shellCardClass}>
-                <div className="border-b border-[#ECEFF3] px-6 py-4"><h3 className="text-lg font-semibold text-[#1A1A2E]">Summary</h3></div>
-                <div className="flex flex-col gap-6 p-6 md:flex-row md:items-start md:justify-between">
-                  <div>
-                    {latestBoq && (
-                      <>
-                        <p className="text-[13px] font-normal tracking-[0.5px] text-[#6B7280]">{latestBoq.input.buildingType} House · {latestBoq.input.city} · {latestBoq.input.specificationProfile}</p>
-                        <div className="mt-2 flex flex-wrap gap-2">
-                          <span className="inline-flex rounded-full bg-[#F3F4F6] px-2.5 py-1 text-[11px] font-semibold text-[#4B5563]">📐 Plot Details</span>
-                          {useCustomRates && <span className="inline-flex rounded-full bg-[#EFF6FF] px-2.5 py-1 text-[11px] font-semibold text-[#2563EB]">💰 Custom Rates</span>}
-                          {useProfessionalInputs && <span className="inline-flex rounded-full bg-[#ECFDF5] px-2.5 py-1 text-[11px] font-semibold text-[#059669]">👷 Professional Inputs</span>}
-                        </div>
-                        <p className="mt-1 text-[42px] font-light leading-tight text-[#1A1A2E]">{latestBoq.totals.grandTotal.toLocaleString("en-IN", { style: "currency", currency: "INR", maximumFractionDigits: 0 })}</p>
-                        <p className="text-[15px] font-normal text-[#6B7280]">{latestBoq.totals.costPerSqft.toLocaleString("en-IN", { style: "currency", currency: "INR", maximumFractionDigits: 0 })} per sqft</p>
-                      </>
-                    )}
+                <div className="rounded-[14px] bg-[#F8FAFF] p-6">
+                  <h3 className="text-[24px] font-semibold text-[#1A1A2E]">Project Summary</h3>
+                  <p className="mt-1 text-sm font-medium text-[#6B7280]">Estimated based on your inputs</p>
+                  {latestBoq && (
+                    <div className="mt-5 grid grid-cols-1 gap-4 md:grid-cols-3">
+                      <div className="rounded-xl border border-[#E5E7EB] bg-white p-4">
+                        <p className="text-xs font-semibold tracking-[0.4px] text-[#6B7280]">Total Cost</p>
+                        <p className="mt-2 text-2xl font-semibold text-[#1A1A2E]">{latestBoq.totals.grandTotal.toLocaleString("en-IN", { style: "currency", currency: "INR", maximumFractionDigits: 0 })}</p>
+                      </div>
+                      <div className="rounded-xl border border-[#E5E7EB] bg-white p-4">
+                        <p className="text-xs font-semibold tracking-[0.4px] text-[#6B7280]">Built-up Area</p>
+                        <p className="mt-2 text-2xl font-semibold text-[#1A1A2E]">{Math.round(latestBoq.project.builtUpAreaSqft).toLocaleString("en-IN")} sqft</p>
+                      </div>
+                      <div className="rounded-xl border border-[#E5E7EB] bg-white p-4">
+                        <p className="text-xs font-semibold tracking-[0.4px] text-[#6B7280]">Cost per sqft</p>
+                        <p className="mt-2 text-2xl font-semibold text-[#1A1A2E]">{latestBoq.totals.costPerSqft.toLocaleString("en-IN", { style: "currency", currency: "INR", maximumFractionDigits: 0 })}</p>
+                      </div>
+                    </div>
+                  )}
+                  <div className="mt-4 space-y-1 text-xs text-[#98A2B3]">
+                    <p>Based on standard construction estimation practices</p>
+                    <p>Aligned with Indian construction norms</p>
                   </div>
-                  <div className="flex flex-wrap gap-2">
+                  <div className="mt-5 flex flex-wrap gap-2">
                     <button type="button" onClick={handleShare} disabled={!latestBoq} className={outlineBtnClass}>Share</button>
                     <button type="button" onClick={handleDownloadAll} disabled={!latestBoq || isGenerating} className={solidBtnClass}>Download All</button>
                   </div>
@@ -1382,28 +1387,66 @@ export default function Home() {
               </section>
 
               <section className={shellCardClass}>
-                <div className="border-b border-[#ECEFF3] px-6 py-4"><h3 className="text-lg font-semibold text-[#1A1A2E]">Documents</h3></div>
+                <div className="px-6 pt-8">
+                  <h3 className="text-[24px] font-semibold text-[#1A1A2E]">Project Deliverables</h3>
+                  <p className="mt-1 text-sm text-[#6B7280]">All essential documents generated from your inputs</p>
+                </div>
+                <div className="border-b border-[#ECEFF3] px-6 py-4"><h3 className="text-lg font-semibold text-[#1A1A2E]">Generated Documents</h3></div>
                 <div className="p-6">
                   <p className="mb-6 text-sm font-semibold text-[#6B7280]">31 documents ready</p>
-                  {phaseOrder.map((group) => {
-                    const docs = docDescriptors.filter((d) => d.phase === group.phase);
+                  {[
+                    {
+                      label: "Cost & Estimation",
+                      items: [
+                        { key: "boq" as DocKey, title: "BOQ" },
+                        { key: "abstract" as DocKey, title: "Cost Estimate" }
+                      ]
+                    },
+                    {
+                      label: "Structural",
+                      items: [
+                        { key: "bbs" as DocKey, title: "BBS" },
+                        { key: "setbackFar" as DocKey, title: "Structural Drawings" }
+                      ]
+                    },
+                    {
+                      label: "Materials",
+                      items: [
+                        { key: "procurement" as DocKey, title: "Material Breakdown" },
+                        { key: "measurement" as DocKey, title: "Quantity Summary" }
+                      ]
+                    }
+                  ].map((group) => {
+                    const docs = group.items
+                      .map((item) => {
+                        const descriptor = docDescriptors.find((d) => d.key === item.key);
+                        if (!descriptor) return null;
+                        return { ...descriptor, displayTitle: item.title };
+                      })
+                      .filter(Boolean) as Array<(typeof docDescriptors)[number] & { displayTitle: string }>;
                     return (
-                      <div key={group.phase} className="mb-10">
-                        <div className="mb-2 border-b border-[#F0F0ED] pb-1 text-xs font-semibold tracking-wide text-[#6B7280]">{group.label}</div>
+                      <div key={group.label} className="mb-10">
+                        <div className="mb-3 border-b border-[#F0F0ED] pb-1 text-xs font-semibold tracking-wide text-[#6B7280]">{group.label}</div>
                         <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
                           {docs.map((doc) => (
-                            <div key={doc.key} className={`group flex min-h-[176px] flex-col justify-between p-6 transition hover:-translate-y-0.5 ${shellCardClass}`}>
+                            <div key={doc.key} className="group flex min-h-[188px] flex-col justify-between rounded-[14px] border border-[#E5E7EB] bg-white p-5 shadow-[0_4px_14px_rgba(15,23,42,0.06)] transition hover:-translate-y-0.5 hover:shadow-[0_12px_24px_rgba(15,23,42,0.10)]">
                               <div className="flex items-start justify-between">
                                 <div className="flex gap-3">
                                   <div className={`flex h-12 w-12 items-center justify-center rounded-lg text-lg ${doc.format === "XLSX" ? "bg-[#F0F4FF] text-[#2563EB]" : "bg-[#FFF0F0] text-[#DC2626]"}`}>{doc.icon}</div>
-                                  <div><p className="text-[16px] font-semibold text-[#1A1A2E]">{doc.name}</p><p className="text-[13px] text-[#6B7280]">{doc.subtitle}</p></div>
+                                  <div>
+                                    <p className="text-[16px] font-bold text-[#1A1A2E]">{doc.displayTitle}</p>
+                                    <p className="line-clamp-1 text-[13px] text-[#6B7280]">{doc.subtitle}</p>
+                                    <p className="mt-1 text-[11px] text-[#98A2B3]">Auto-generated · Based on project inputs · ~200KB</p>
+                                  </div>
                                 </div>
                                 <div className="flex flex-col items-end gap-2">
                                   <span className={`rounded-full px-2.5 py-1 text-[11px] font-semibold ${doc.format === "XLSX" ? "bg-[#EFF6FF] text-[#2563EB]" : "bg-[#FEF2F2] text-[#DC2626]"}`}>{doc.format}</span>
                                   {doc.key === "boq" && <div className="mt-1">{boqAiBadge()}</div>}
                                 </div>
                               </div>
-                              <div className="mt-4 flex items-center justify-end border-t border-[#F0F0ED] pt-3"><div className="flex gap-2"><button type="button" onClick={() => void openPreviewByKey(doc.key)} disabled={!latestBoq || isGenerating} className={outlineBtnClass}>👁 Preview</button><button type="button" onClick={() => downloadDocByKey(doc.key)} disabled={!latestBoq || isGenerating} className={outlineBtnClass}>⬇ Download</button></div></div>
+                              <div className="mt-4 border-t border-[#F0F0ED] pt-3">
+                                <button type="button" onClick={() => void openPreviewByKey(doc.key)} disabled={!latestBoq || isGenerating} className="h-10 w-full rounded-[10px] bg-[#2563EB] text-sm font-semibold text-white transition hover:bg-[#1D4ED8] active:scale-[0.99] disabled:opacity-60">View Document</button>
+                              </div>
                             </div>
                           ))}
                         </div>
@@ -1483,10 +1526,15 @@ export default function Home() {
                   </div>
                   {lastRegenDelta !== null && (
                     <div className="px-6 pb-6">
+                      <p className="mb-3 text-sm font-medium text-[#475467]">Updated based on your changes</p>
                       <p className={`inline-flex rounded-full px-3 py-1 text-sm font-semibold ${lastRegenDelta > 0 ? "bg-[#FEF3F2] text-[#B42318]" : lastRegenDelta < 0 ? "bg-[#ECFDF3] text-[#027A48]" : "bg-[#F2F4F7] text-[#475467]"}`}>
                         {lastRegenDelta > 0 ? "+" : lastRegenDelta < 0 ? "-" : ""}{Math.abs(lastRegenDelta).toLocaleString("en-IN", { style: "currency", currency: "INR", maximumFractionDigits: 0 })}
                         <span className="ml-2 font-medium opacity-80">{lastRegenDelta > 0 ? "Cost increased" : lastRegenDelta < 0 ? "Cost decreased" : "No cost change"}</span>
                       </p>
+                      <div className="mt-3 flex flex-wrap gap-2 text-xs text-[#667085]">
+                        <span className="rounded-full bg-[#F2F4F7] px-2.5 py-1">Try Premium to compare</span>
+                        <span className="rounded-full bg-[#F2F4F7] px-2.5 py-1">Increase area to see impact</span>
+                      </div>
                     </div>
                   )}
                 </section>
